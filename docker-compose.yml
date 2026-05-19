@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  bot:
+    build: .
+    container_name: tg-group-guard
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+    env_file:
+      - .env
