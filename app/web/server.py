@@ -267,14 +267,29 @@ def security_log():
     conn = get_conn()
     c = conn.cursor()
     c.execute("""
-        SELECT ip, attempts,
-               CASE WHEN locked_until > datetime('now') THEN 1 ELSE 0 END as is_locked,
-               locked_until, last_attempt
+        SELECT ip, attempts, locked_until, last_attempt
         FROM login_attempts
         ORDER BY last_attempt DESC
     """)
-    rows = c.fetchall()
+    raw_rows = c.fetchall()
     conn.close()
+
+    # 在 Python 中计算锁定状态（避免 SQLite 与 Python 时区差异）
+    rows = []
+    now = datetime.now()
+    for row in raw_rows:
+        is_locked = False
+        if row["locked_until"]:
+            locked_until = datetime.fromisoformat(row["locked_until"]) if isinstance(row["locked_until"], str) else row["locked_until"]
+            is_locked = now < locked_until
+        rows.append({
+            "ip": row["ip"],
+            "attempts": row["attempts"],
+            "is_locked": is_locked,
+            "locked_until": row["locked_until"],
+            "last_attempt": row["last_attempt"],
+        })
+
     return render_template("security.html", rows=rows, max_attempts=MAX_LOGIN_ATTEMPTS, lockout_minutes=LOCKOUT_MINUTES)
 
 @app.route("/api/security/unlock/<ip>", methods=["POST"])
