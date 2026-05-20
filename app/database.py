@@ -58,6 +58,15 @@ def init_db():
     conn.commit()
     # 初始化默认违禁词（如果不存在）
     _init_default_keywords(c)
+    # 登录尝试记录表（防暴力破解）
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS login_attempts (
+            ip TEXT PRIMARY KEY,
+            attempts INTEGER DEFAULT 0,
+            locked_until TIMESTAMP,
+            last_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     conn.commit()
     conn.close()
 

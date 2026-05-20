@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}安全日志{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>🔒 安全日志</h3>
+    <span class="badge bg-info">连续 {{ max_attempts }} 次失败锁定 {{ lockout_minutes }} 分钟</span>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title mb-3">🚫 登录失败记录</h5>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>IP 地址</th>
+                        <th>失败次数</th>
+                        <th>状态</th>
+                        <th>锁定至</th>
+                        <th>最后尝试</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td><code>{{ row.ip }}</code></td>
+                        <td>
+                            <span class="badge bg-{{ 'danger' if row.attempts >= max_attempts else 'warning' }}">
+                                {{ row.attempts }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if row.is_locked %}
+                            <span class="badge bg-danger">🔒 已锁定</span>
+                            {% else %}
+                            <span class="badge bg-success">✓ 正常</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">
+                            {% if row.locked_until %}
+                                {{ row.locked_until }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">{{ row.last_attempt }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('unlock_ip', ip=row.ip) }}" style="display:inline;" onsubmit="return confirm('确定解锁 IP {{ row.ip }} 吗？');">
+                                <button type="submit" class="btn btn-sm btn-outline-success">解锁</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">暂无登录失败记录</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

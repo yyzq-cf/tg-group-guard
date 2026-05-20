@@ -2,6 +2,7 @@ import os
 import sqlite3
 import hashlib
 import secrets
+import logging
 from functools import wraps
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
@@ -11,10 +12,81 @@ from app.config import Config
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.getenv("WEB_SECRET", secrets.token_hex(32))
 
-ADMIN_PASSWORD_HASH=os.getenv("ADMIN_PASSWORD", "admin")
+ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD", "admin")
+
+# 防暴力破解配置
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_MINUTES = 15
+
+logger = logging.getLogger(__name__)
 
 def hash_pwd(pwd: str) -> str:
     return hashlib.sha256(pwd.encode()).hexdigest()[:32]
+
+def get_client_ip():
+    """获取真实客户端 IP（支持反向代理）"""
+    if request.headers.get("X-Forwarded-For"):
+        return request.headers.get("X-Forwarded-For").split(",")[0].strip()
+    if request.headers.get("X-Real-Ip"):
+        return request.headers.get("X-Real-Ip").strip()
+    return request.remote_addr
+
+def get_login_attempt(ip: str):
+    """获取某 IP 的登录尝试记录"""
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM login_attempts WHERE ip = ?", (ip,))
+    row = c.fetchone()
+    conn.close()
+    return row
+
+def record_login_attempt(ip: str, success: bool = False):
+    """记录登录尝试"""
+    conn = get_conn()
+    c = conn.cursor()
+    now = datetime.now()
+
+    if success:
+        # 登录成功，清除记录
+        c.execute("DELETE FROM login_attempts WHERE ip = ?", (ip,))
+    else:
+        row = get_login_attempt(ip)
+        if row:
+            new_attempts = row["attempts"] + 1
+            locked_until = None
+            if new_attempts >= MAX_LOGIN_ATTEMPTS:
+                locked_until = now + timedelta(minutes=LOCKOUT_MINUTES)
+                logger.warning(f"IP {ip} locked until {locked_until} after {new_attempts} failed attempts")
+            c.execute("""
+                UPDATE login_attempts
+                SET attempts = ?, locked_until = ?, last_attempt = ?
+                WHERE ip = ?
+            """, (new_attempts, locked_until, now, ip))
+        else:
+            c.execute("""
+                INSERT INTO login_attempts (ip, attempts, last_attempt)
+                VALUES (?, 1, ?)
+            """, (ip, now))
+    conn.commit()
+    conn.close()
+
+def is_ip_locked(ip: str):
+    """检查 IP 是否被锁定"""
+    row = get_login_attempt(ip)
+    if not row or not row["locked_until"]:
+        return False, 0
+    locked_until = datetime.fromisoformat(row["locked_until"]) if isinstance(row["locked_until"], str) else row["locked_until"]
+    if datetime.now() < locked_until:
+        remaining = int((locked_until - datetime.now()).total_seconds())
+        return True, remaining
+    return False, 0
+
+def get_remaining_attempts(ip: str):
+    """获取剩余尝试次数"""
+    row = get_login_attempt(ip)
+    if not row:
+        return MAX_LOGIN_ATTEMPTS
+    return max(0, MAX_LOGIN_ATTEMPTS - row["attempts"])
 
 def login_required(f):
     @wraps(f)
@@ -26,13 +98,32 @@ def login_required(f):
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    ip = get_client_ip()
+    locked, remaining_seconds = is_ip_locked(ip)
+
+    if locked:
+        flash(f"登录过于频繁，请 {remaining_seconds // 60} 分 {remaining_seconds % 60} 秒后再试", "danger")
+        return render_template("login.html", locked=True, remaining_seconds=remaining_seconds)
+
+    remaining = get_remaining_attempts(ip)
+
     if request.method == "POST":
         pwd = request.form.get("password", "")
         if hash_pwd(pwd) == hash_pwd(ADMIN_PASSWORD_HASH):
+            record_login_attempt(ip, success=True)
             session["logged_in"] = True
             return redirect(url_for("dashboard"))
-        flash("密码错误", "danger")
-    return render_template("login.html")
+        else:
+            record_login_attempt(ip, success=False)
+            remaining = get_remaining_attempts(ip)
+            if remaining == 0:
+                locked, remaining_seconds = is_ip_locked(ip)
+                flash(f"密码错误。登录过于频繁，已锁定 {LOCKOUT_MINUTES} 分钟", "danger")
+                return render_template("login.html", locked=True, remaining_seconds=remaining_seconds)
+            else:
+                flash(f"密码错误，还剩 {remaining} 次机会", "warning")
+
+    return render_template("login.html", locked=False, remaining_attempts=remaining)
 
 @app.route("/logout")
 def logout():
@@ -167,6 +258,35 @@ ADMIN_PASSWORD={data.get('admin_password', ADMIN_PASSWORD_HASH)}
         return redirect(url_for("settings"))
 
     return render_template("settings.html", config=Config, admin_password=ADMIN_PASSWORD_HASH)
+
+# ==================== 安全日志 ====================
+
+@app.route("/security")
+@login_required
+def security_log():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("""
+        SELECT ip, attempts,
+               CASE WHEN locked_until > datetime('now') THEN 1 ELSE 0 END as is_locked,
+               locked_until, last_attempt
+        FROM login_attempts
+        ORDER BY last_attempt DESC
+    """)
+    rows = c.fetchall()
+    conn.close()
+    return render_template("security.html", rows=rows, max_attempts=MAX_LOGIN_ATTEMPTS, lockout_minutes=LOCKOUT_MINUTES)
+
+@app.route("/api/security/unlock/<ip>", methods=["POST"])
+@login_required
+def unlock_ip(ip):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("DELETE FROM login_attempts WHERE ip = ?", (ip,))
+    conn.commit()
+    conn.close()
+    flash(f"已解锁 IP: {ip}", "success")
+    return redirect(url_for("security_log"))
 
 # ==================== 违禁词管理 ====================
 

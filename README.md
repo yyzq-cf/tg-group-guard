@@ -8,6 +8,7 @@
 - **🚫 垃圾信息拦截** — 自动检测并删除广告、引流、博彩、色情等违规内容
 - **📊 管理统计** — 查看验证通过人数、违规拦截次数、验证超时次数
 - **📝 违禁词在线管理** — Web 后台实时添加/删除/启用/禁用违禁词，即时生效无需重启
+- **🔒 防暴力破解** — Web 后台连续 5 次密码错误自动锁定 IP 15 分钟，支持手动解锁
 - **⚡ 轻量部署** — 基于 Python + SQLite，单容器即可运行
 
 ## 🚀 快速开始
@@ -33,7 +34,7 @@ VERIFY_TIMEOUT=60
 MAX_WARNINGS=3
 MUTE_DURATION=300
 DB_PATH=/data/bot.db
-ADMIN_PASSWORD=admin
+ADMIN_PASSWORD=***
 ```
 
 > 获取你的 Telegram 数字 ID：[@userinfobot](https://t.me/userinfobot)
@@ -74,11 +75,24 @@ docker run -d \
 | **🚫 违规记录** | 分页查看所有被拦截的消息，支持搜索 |
 | **📝 违禁词管理** | 在线添加/删除/启用/禁用违禁词，即时生效 |
 | **👤 用户列表** | 查看所有群成员，显示验证状态、警告次数 |
+| **🔒 安全日志** | 查看登录失败记录，手动解锁被锁定的 IP |
 | **⚙️ 系统设置** | 修改配置参数、管理密码 |
 
 ### 🔐 默认登录
 - 地址：`http://服务器IP:8080`
 - 密码：`.env` 中设置的 `ADMIN_PASSWORD`（默认 `admin`）
+
+> ⚠️ **建议立即修改默认密码**，并妥善保管。连续 5 次输入错误将自动锁定该 IP 15 分钟。
+
+## 🔒 防暴力破解
+
+Web 后台内置了防暴力破解机制：
+
+- **失败计数**：记录每个 IP 的登录失败次数
+- **自动锁定**：连续 5 次密码错误后，该 IP 将被锁定 15 分钟
+- **倒计时提示**：锁定页面显示剩余解锁时间的倒计时
+- **手动解锁**：管理员可在 **安全日志** 页面手动解锁任意 IP
+- **IP 识别**：支持 `X-Forwarded-For` 和 `X-Real-Ip` 头，适配反向代理环境
 
 ## 📝 违禁词管理
 
@@ -134,7 +148,7 @@ Bot 的消息拦截逻辑每次都会**实时查询数据库**获取启用的违
 │   ├── __main__.py
 │   ├── main.py              # 入口（启动 Bot + Web 后台）
 │   ├── config.py            # 配置读取
-│   ├── database.py          # SQLite 数据库（含违禁词表）
+│   ├── database.py          # SQLite 数据库（含违禁词表、登录记录表）
 │   ├── handlers/
 │   │   ├── __init__.py
 │   │   ├── join_request.py  # 入群验证逻辑
@@ -148,7 +162,8 @@ Bot 的消息拦截逻辑每次都会**实时查询数据库**获取启用的违
 │           ├── dashboard.html
 │           ├── violations.html
 │           ├── users.html
-│           ├── keywords.html  # 违禁词管理页面
+│           ├── keywords.html    # 违禁词管理页面
+│           ├── security.html    # 安全日志页面
 │           └── settings.html
 ├── Dockerfile
 ├── docker-compose.yml
