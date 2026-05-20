@@ -72,6 +72,9 @@
         <a class="nav-link {% if request.endpoint == 'keywords' %}active{% endif %}" href="{{ url_for('keywords') }}">
             <i class="bi bi-slash-circle me-2"></i>违禁词管理
         </a>
+        <a class="nav-link {% if request.endpoint == 'auto_replies' %}active{% endif %}" href="{{ url_for('auto_replies') }}">
+            <i class="bi bi-chat-dots me-2"></i>自动回复
+        </a>
         <a class="nav-link {% if request.endpoint == 'users' %}active{% endif %}" href="{{ url_for('users') }}">
             <i class="bi bi-people me-2"></i>用户管理
         </a>
@@ -103,6 +106,9 @@
                 </a>
                 <a class="nav-link {% if request.endpoint == 'keywords' %}active{% endif %}" href="{{ url_for('keywords') }}">
                     <i class="bi bi-slash-circle me-2"></i>违禁词管理
+                </a>
+                <a class="nav-link {% if request.endpoint == 'auto_replies' %}active{% endif %}" href="{{ url_for('auto_replies') }}">
+                    <i class="bi bi-chat-dots me-2"></i>自动回复
                 </a>
                 <a class="nav-link {% if request.endpoint == 'users' %}active{% endif %}" href="{{ url_for('users') }}">
                     <i class="bi bi-people me-2"></i>用户管理

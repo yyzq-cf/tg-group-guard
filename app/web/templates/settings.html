@@ -62,6 +62,61 @@
                 <div class="form-text">设置为 0 则不自动删除，默认 60 秒</div>
             </div>
 
+            <hr class="my-4">
+
+            <h6 class="mb-3"><i class="bi bi-link-45deg me-2"></i>链接/广告过滤</h6>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="link_filter_enabled" id="link_filter_enabled" {% if link_settings.enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="link_filter_enabled">启用链接过滤</label>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="link_filter_tg_invite" id="link_filter_tg_invite" {% if link_settings.tg_invite %}checked{% endif %}>
+                        <label class="form-check-label" for="link_filter_tg_invite">拦截 TG 邀请链接 (t.me/xxx)</label>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="link_filter_short_url" id="link_filter_short_url" {% if link_settings.short_url %}checked{% endif %}>
+                        <label class="form-check-label" for="link_filter_short_url">拦截短链接 (bit.ly 等)</label>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="link_filter_all_url" id="link_filter_all_url" {% if link_settings.all_url %}checked{% endif %}>
+                        <label class="form-check-label" for="link_filter_all_url"><strong>拦截所有链接</strong>（慎用）</label>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-4">
+
+            <h6 class="mb-3"><i class="bi bi-shield-fill-exclamation me-2"></i>防刷屏</h6>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="antiflood_enabled" id="antiflood_enabled" {% if antiflood_settings.enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="antiflood_enabled">启用防刷屏</label>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">时间窗口 (秒)</label>
+                    <input type="number" name="antiflood_seconds" class="form-control" value="{{ antiflood_settings.seconds }}" min="3" max="300">
+                    <div class="form-text">在此时间内发送消息达到阈值即触发</div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">消息条数阈值</label>
+                    <input type="number" name="antiflood_count" class="form-control" value="{{ antiflood_settings.count }}" min="2" max="50">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">触发后动作</label>
+                <select name="antiflood_action" class="form-select">
+                    <option value="mute" {% if antiflood_settings.action == 'mute' %}selected{% endif %}>禁言 (默认时长)</option>
+                    <option value="kick" {% if antiflood_settings.action == 'kick' %}selected{% endif %}>踢出群组</option>
+                    <option value="warn" {% if antiflood_settings.action == 'warn' %}selected{% endif %}>仅警告</option>
+                </select>
+            </div>
+
             <button type="submit" class="btn btn-primary">
                 <i class="bi bi-save me-1"></i>保存配置
             </button>
@@ -71,6 +126,6 @@
 
 <div class="alert alert-info">
     <i class="bi bi-info-circle me-2"></i>
-    <strong>提示：</strong>Bot Token 等配置修改后需要重启容器才能生效。欢迎语修改后即时生效，无需重启。
+    <strong>提示：</strong>Bot Token 等配置修改后需要重启容器才能生效。链接过滤、防刷屏、欢迎语修改后即时生效，无需重启。
 </div>
 {% endblock %}

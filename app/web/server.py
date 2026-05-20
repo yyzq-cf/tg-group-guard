@@ -12,7 +12,7 @@ from app.config import Config
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.getenv("WEB_SECRET", secrets.token_hex(32))
 
-ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD", "admin")
+ADMIN_PASSWORD_HASH=os.getenv("ADMIN_PASSWORD", "admin")
 
 # 防暴力破解配置
 MAX_LOGIN_ATTEMPTS = 5
@@ -266,12 +266,43 @@ ADMIN_PASSWORD={ADMIN_PASSWORD_HASH}
         welcome_delete_delay = data.get("welcome_delete_delay", "60").strip()
         if welcome_delete_delay.isdigit():
             set_setting("welcome_delete_delay", welcome_delete_delay)
+
+        # 保存链接过滤设置
+        set_setting("link_filter_enabled", "1" if data.get("link_filter_enabled") else "0")
+        set_setting("link_filter_tg_invite", "1" if data.get("link_filter_tg_invite") else "0")
+        set_setting("link_filter_short_url", "1" if data.get("link_filter_short_url") else "0")
+        set_setting("link_filter_all_url", "1" if data.get("link_filter_all_url") else "0")
+
+        # 保存防刷屏设置
+        set_setting("antiflood_enabled", "1" if data.get("antiflood_enabled") else "0")
+        antiflood_seconds = data.get("antiflood_seconds", "10").strip()
+        if antiflood_seconds.isdigit():
+            set_setting("antiflood_seconds", str(max(3, min(300, int(antiflood_seconds)))))
+        antiflood_count = data.get("antiflood_count", "5").strip()
+        if antiflood_count.isdigit():
+            set_setting("antiflood_count", str(max(2, min(50, int(antiflood_count)))))
+        set_setting("antiflood_action", data.get("antiflood_action", "mute"))
+
         flash("配置已保存", "success")
         return redirect(url_for("settings"))
 
     welcome_message = get_setting("welcome_message", "")
     welcome_delete_delay = get_setting("welcome_delete_delay", "60")
-    return render_template("settings.html", config=Config, admin_password=ADMIN_PASSWORD_HASH, welcome_message=welcome_message, welcome_delete_delay=welcome_delete_delay)
+    link_settings = {
+        "enabled": get_setting("link_filter_enabled", "1") == "1",
+        "tg_invite": get_setting("link_filter_tg_invite", "1") == "1",
+        "short_url": get_setting("link_filter_short_url", "1") == "1",
+        "all_url": get_setting("link_filter_all_url", "0") == "1",
+    }
+    antiflood_settings = {
+        "enabled": get_setting("antiflood_enabled", "1") == "1",
+        "seconds": get_setting("antiflood_seconds", "10"),
+        "count": get_setting("antiflood_count", "5"),
+        "action": get_setting("antiflood_action", "mute"),
+    }
+    return render_template("settings.html", config=Config, admin_password=ADMIN_PASSWORD_HASH,
+                           welcome_message=welcome_message, welcome_delete_delay=welcome_delete_delay,
+                           link_settings=link_settings, antiflood_settings=antiflood_settings)
 
 # ==================== 安全日志 ====================
 
@@ -379,6 +410,62 @@ def api_toggle_keyword(kid):
         status = "启用" if row["enabled"] else "禁用"
         return jsonify({"success": True, "enabled": bool(row["enabled"]), "keyword": row["keyword"], "message": f"已{status}: {row['keyword']}"})
     return jsonify({"success": False, "error": "关键词不存在"}), 404
+
+# ==================== 自动回复管理 ====================
+
+@app.route("/auto_replies")
+@login_required
+def auto_replies():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM auto_replies ORDER BY created_at DESC")
+    rows = c.fetchall()
+    conn.close()
+    return render_template("auto_replies.html", rows=rows)
+
+@app.route("/api/auto_replies", methods=["POST"])
+@login_required
+def api_add_auto_reply():
+    data = request.get_json() or request.form
+    keyword = (data.get("keyword") or "").strip()
+    reply_text = (data.get("reply_text") or "").strip()
+    if not keyword or not reply_text:
+        return jsonify({"success": False, "error": "关键词和回复内容不能为空"}), 400
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("INSERT INTO auto_replies (keyword, reply_text) VALUES (?, ?)", (keyword, reply_text))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": f"已添加自动回复: {keyword}"})
+
+@app.route("/api/auto_replies/<int:rid>", methods=["DELETE"])
+@login_required
+def api_delete_auto_reply(rid):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("DELETE FROM auto_replies WHERE id = ?", (rid,))
+    conn.commit()
+    deleted = c.rowcount
+    conn.close()
+    if deleted:
+        return jsonify({"success": True, "message": "已删除"})
+    return jsonify({"success": False, "error": "规则不存在"}), 404
+
+@app.route("/api/auto_replies/<int:rid>/toggle", methods=["POST"])
+@login_required
+def api_toggle_auto_reply(rid):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("UPDATE auto_replies SET enabled = CASE WHEN enabled = 1 THEN 0 ELSE 1 END WHERE id = ?", (rid,))
+    conn.commit()
+    updated = c.rowcount
+    c.execute("SELECT enabled, keyword FROM auto_replies WHERE id = ?", (rid,))
+    row = c.fetchone()
+    conn.close()
+    if updated and row:
+        status = "启用" if row["enabled"] else "禁用"
+        return jsonify({"success": True, "enabled": bool(row["enabled"]), "keyword": row["keyword"], "message": f"已{status}: {row['keyword']}"})
+    return jsonify({"success": False, "error": "规则不存在"}), 404
 
 @app.route("/api/stats")
 @login_required

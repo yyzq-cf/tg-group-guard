@@ -75,6 +75,17 @@ def init_db():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # 自动回复表
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS auto_replies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            keyword TEXT NOT NULL,
+            reply_text TEXT NOT NULL,
+            enabled INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     # 初始化默认欢迎语
     c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
               ("welcome_message", "🎉 欢迎 {mention} 加入群组！\n\n✅ 验证已通过，你现在可以正常发言了。\n\n请遵守群规，文明交流~"))
