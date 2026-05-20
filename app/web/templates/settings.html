@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}系统设置{% endblock %}
+{% block content %}
+<h4 class="mb-4">⚙️ 系统设置</h4>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white">
+        <h6 class="mb-0"><i class="bi bi-gear me-2"></i>机器人配置</h6>
+    </div>
+    <div class="card-body">
+        <form method="POST">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Bot Token</label>
+                    <input type="text" name="bot_token" class="form-control" value="{{ config.BOT_TOKEN }}" placeholder="输入 Bot Token">
+                    <div class="form-text">从 @BotFather 获取</div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">管理员 IDs</label>
+                    <input type="text" name="admin_ids" class="form-control" value="{{ config.ADMIN_IDS|join(',') }}" placeholder="如: 123456,789012">
+                    <div class="form-text">多个用英文逗号分隔</div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">验证超时 (秒)</label>
+                    <input type="number" name="verify_timeout" class="form-control" value="{{ config.VERIFY_TIMEOUT }}" min="10" max="600">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">最大警告次数</label>
+                    <input type="number" name="max_warnings" class="form-control" value="{{ config.MAX_WARNINGS }}" min="1" max="10">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">禁言时长 (秒)</label>
+                    <input type="number" name="mute_duration" class="form-control" value="{{ config.MUTE_DURATION }}" min="30" max="86400">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">管理后台密码</label>
+                <input type="password" name="admin_password" class="form-control" placeholder="留空则不变" autocomplete="new-password">
+                <div class="form-text">当前密码已隐藏，输入新密码可修改</div>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save me-1"></i>保存配置
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="alert alert-info mt-4">
+    <i class="bi bi-info-circle me-2"></i>
+    <strong>提示：</strong>修改配置后需要重启容器才能生效。使用命令：<code>docker-compose restart</code>
+</div>
+{% endblock %}

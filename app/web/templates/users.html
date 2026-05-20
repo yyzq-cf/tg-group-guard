@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}用户管理{% endblock %}
+{% block content %}
+<h4 class="mb-4">👥 用户管理</h4>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white">
+        <span>共 {{ total }} 位用户</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>用户ID</th>
+                        <th>用户名</th>
+                        <th>首次出现</th>
+                        <th>验证状态</th>
+                        <th>警告次数</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td>{{ row.user_id }}</td>
+                        <td>{{ row.username or '-' }}</td>
+                        <td><small class="text-muted">{{ row.first_seen }}</small></td>
+                        <td>
+                            {% if row.passed_verification %}
+                                <span class="badge bg-success">已验证</span>
+                            {% else %}
+                                <span class="badge bg-secondary">未验证</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.warning_count >= 3 %}
+                                <span class="badge bg-danger">{{ row.warning_count }}</span>
+                            {% elif row.warning_count > 0 %}
+                                <span class="badge bg-warning">{{ row.warning_count }}</span>
+                            {% else %}
+                                <span class="badge bg-success">0</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">暂无用户数据</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if total_pages > 1 %}
+    <div class="card-footer bg-white">
+        <nav>
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('users', page=page-1) }}">上一页</a>
+                </li>
+                <li class="page-item disabled"><span class="page-link">{{ page }} / {{ total_pages }}</span></li>
+                <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('users', page=page+1) }}">下一页</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

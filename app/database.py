@@ -4,13 +4,16 @@ import os
 DB_PATH = os.getenv("DB_PATH", "/data/bot.db")
 
 def get_conn():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = get_conn()
+    # 启用 WAL 模式，支持 Bot 和 Web 并发读写
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
     c = conn.cursor()
     c.execute('''
         CREATE TABLE IF NOT EXISTS verification_sessions (

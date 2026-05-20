@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}仪表盘{% endblock %}
+{% block content %}
+<h4 class="mb-4">📊 数据概览</h4>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card p-3">
+            <div class="d-flex align-items-center">
+                <div class="stat-icon bg-success bg-opacity-10 text-success me-3">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">通过验证</div>
+                    <h4 class="mb-0">{{ verified }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card p-3">
+            <div class="d-flex align-items-center">
+                <div class="stat-icon bg-danger bg-opacity-10 text-danger me-3">
+                    <i class="bi bi-shield-exclamation"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">违规拦截</div>
+                    <h4 class="mb-0">{{ violations }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card p-3">
+            <div class="d-flex align-items-center">
+                <div class="stat-icon bg-warning bg-opacity-10 text-warning me-3">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">验证超时</div>
+                    <h4 class="mb-0">{{ timeouts }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card p-3">
+            <div class="d-flex align-items-center">
+                <div class="stat-icon bg-info bg-opacity-10 text-info me-3">
+                    <i class="bi bi-x-circle"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">验证失败</div>
+                    <h4 class="mb-0">{{ verify_failed }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>近7天违规趋势</h6>
+            </div>
+            <div class="card-body">
+                {% if daily_violations %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead><tr><th>日期</th><th class="text-end">违规数</th></tr></thead>
+                        <tbody>
+                            {% for row in daily_violations %}
+                            <tr><td>{{ row.day }}</td><td class="text-end"><span class="badge bg-danger">{{ row.cnt }}</span></td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3">暂无数据</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>主要违规类型</h6>
+            </div>
+            <div class="card-body">
+                {% if top_reasons %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead><tr><th>类型</th><th class="text-end">次数</th></tr></thead>
+                        <tbody>
+                            {% for row in top_reasons %}
+                            <tr><td>{{ row.reason }}</td><td class="text-end"><span class="badge bg-secondary">{{ row.cnt }}</span></td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3">暂无数据</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-header bg-white">
+        <h6 class="mb-0"><i class="bi bi-person-x me-2"></i>高频违规用户 TOP10</h6>
+    </div>
+    <div class="card-body">
+        {% if top_users %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover">
+                <thead><tr><th>用户ID</th><th>用户名</th><th>警告次数</th><th>验证状态</th></tr></thead>
+                <tbody>
+                    {% for u in top_users %}
+                    <tr>
+                        <td>{{ u.user_id }}</td>
+                        <td>{{ u.username or '-' }}</td>
+                        <td><span class="badge bg-warning">{{ u.warning_count }}</span></td>
+                        <td>{% if u.passed_verification %}<span class="badge bg-success">已验证</span>{% else %}<span class="badge bg-secondary">未验证</span>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-3">暂无数据</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
