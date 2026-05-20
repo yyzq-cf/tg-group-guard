@@ -258,11 +258,15 @@ ADMIN_PASSWORD={data.get('admin_password', ADMIN_PASSWORD_HASH)}
         # 保存欢迎语到数据库（即时生效）
         welcome_msg = data.get("welcome_message", "").strip()
         set_setting("welcome_message", welcome_msg)
+        welcome_delete_delay = data.get("welcome_delete_delay", "60").strip()
+        if welcome_delete_delay.isdigit():
+            set_setting("welcome_delete_delay", welcome_delete_delay)
         flash("配置已保存", "success")
         return redirect(url_for("settings"))
 
     welcome_message = get_setting("welcome_message", "")
-    return render_template("settings.html", config=Config, admin_password=ADMIN_PASSWORD_HASH, welcome_message=welcome_message)
+    welcome_delete_delay = get_setting("welcome_delete_delay", "60")
+    return render_template("settings.html", config=Config, admin_password=ADMIN_PASSWORD_HASH, welcome_message=welcome_message, welcome_delete_delay=welcome_delete_delay)
 
 # ==================== 安全日志 ====================
 

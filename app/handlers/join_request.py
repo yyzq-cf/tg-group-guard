@@ -71,15 +71,35 @@ def format_welcome_message(template: str, user) -> str:
                    .replace("{user_id}", str(user.id))
 
 async def send_welcome(chat_id: int, user, context: ContextTypes.DEFAULT_TYPE):
-    """发送群内欢迎语"""
+    """发送群内欢迎语，并在 60 秒后自动删除"""
     try:
         template = get_setting("welcome_message", "")
         if not template or not template.strip():
             return
         text = format_welcome_message(template, user)
-        await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+        msg = await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+        # 60 秒后自动删除欢迎语
+        delete_delay = int(get_setting("welcome_delete_delay", "60"))
+        context.job_queue.run_once(
+            auto_delete_welcome,
+            when=delete_delay,
+            data={"chat_id": chat_id, "message_id": msg.message_id},
+            name=f"del_welcome_{msg.message_id}"
+        )
     except Exception as e:
         logger.warning(f"Send welcome message failed: {e}")
+
+async def auto_delete_welcome(context: ContextTypes.DEFAULT_TYPE):
+    """定时删除欢迎语消息"""
+    job = context.job
+    data = job.data
+    chat_id = data["chat_id"]
+    message_id = data["message_id"]
+    try:
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+        logger.info(f"Auto-deleted welcome message {message_id} in chat {chat_id}")
+    except Exception as e:
+        logger.warning(f"Failed to auto-delete welcome message {message_id}: {e}")
 
 async def handle_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.chat_member:

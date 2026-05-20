@@ -56,6 +56,11 @@
                     <code>{user_id}</code> — 用户数字ID
                 </div>
             </div>
+            <div class="mb-3">
+                <label class="form-label">欢迎语自动删除 (秒)</label>
+                <input type="number" name="welcome_delete_delay" class="form-control" value="{{ welcome_delete_delay }}" min="0" max="3600">
+                <div class="form-text">设置为 0 则不自动删除，默认 60 秒</div>
+            </div>
 
             <button type="submit" class="btn btn-primary">
                 <i class="bi bi-save me-1"></i>保存配置
