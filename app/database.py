@@ -67,6 +67,17 @@ def init_db():
             last_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # 通用配置表
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    # 初始化默认欢迎语
+    c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+              ("welcome_message", "🎉 欢迎 {mention} 加入群组！\n\n✅ 验证已通过，你现在可以正常发言了。\n\n请遵守群规，文明交流~"))
     conn.commit()
     conn.close()
 
@@ -79,3 +90,21 @@ def _init_default_keywords(c):
     ]
     for kw in defaults:
         c.execute("INSERT OR IGNORE INTO blocked_keywords (keyword) VALUES (?)", (kw,))
+
+def get_setting(key: str, default="") -> str:
+    """获取配置项"""
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT value FROM settings WHERE key = ?", (key,))
+    row = c.fetchone()
+    conn.close()
+    return row["value"] if row else default
+
+def set_setting(key: str, value: str):
+    """设置配置项"""
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))",
+              (key, value))
+    conn.commit()
+    conn.close()

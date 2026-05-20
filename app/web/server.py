@@ -6,7 +6,7 @@ import logging
 from functools import wraps
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
-from app.database import get_conn, DB_PATH
+from app.database import get_conn, get_setting, set_setting
 from app.config import Config
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
@@ -241,9 +241,10 @@ def users():
 @app.route("/settings", methods=["GET", "POST"])
 @login_required
 def settings():
-    config_file = "/app/.env"
     if request.method == "POST":
         data = request.form
+        # 保存 .env 配置
+        config_file = "/app/.env"
         content = f"""BOT_TOKEN={data.get('bot_token', Config.BOT_TOKEN)}
 ADMIN_IDS={data.get('admin_ids', ','.join(map(str, Config.ADMIN_IDS)))}
 VERIFY_TIMEOUT={data.get('verify_timeout', Config.VERIFY_TIMEOUT)}
@@ -254,10 +255,14 @@ ADMIN_PASSWORD={data.get('admin_password', ADMIN_PASSWORD_HASH)}
 """
         with open(config_file, "w") as f:
             f.write(content)
-        flash("配置已保存（重启后生效）", "success")
+        # 保存欢迎语到数据库（即时生效）
+        welcome_msg = data.get("welcome_message", "").strip()
+        set_setting("welcome_message", welcome_msg)
+        flash("配置已保存", "success")
         return redirect(url_for("settings"))
 
-    return render_template("settings.html", config=Config, admin_password=ADMIN_PASSWORD_HASH)
+    welcome_message = get_setting("welcome_message", "")
+    return render_template("settings.html", config=Config, admin_password=ADMIN_PASSWORD_HASH, welcome_message=welcome_message)
 
 # ==================== 安全日志 ====================
 

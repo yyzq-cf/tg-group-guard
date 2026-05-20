@@ -2,7 +2,7 @@ import random
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPermissions
 from telegram.ext import ContextTypes, ChatMemberHandler, CallbackQueryHandler
-from app.database import get_conn
+from app.database import get_conn, get_setting
 from app.config import Config
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,25 @@ async def kick_member(chat_id: int, user_id: int, context: ContextTypes.DEFAULT_
         await context.bot.unban_chat_member(chat_id=chat_id, user_id=user_id)
     except Exception as e:
         logger.warning(f"Kick member failed: {e}")
+
+def format_welcome_message(template: str, user) -> str:
+    """替换欢迎语中的变量"""
+    return template.replace("{mention}", user.mention_html()) \
+                   .replace("{name}", user.full_name or "用户") \
+                   .replace("{first_name}", user.first_name or "用户") \
+                   .replace("{username}", f"@{user.username}" if user.username else user.full_name or "用户") \
+                   .replace("{user_id}", str(user.id))
+
+async def send_welcome(chat_id: int, user, context: ContextTypes.DEFAULT_TYPE):
+    """发送群内欢迎语"""
+    try:
+        template = get_setting("welcome_message", "")
+        if not template or not template.strip():
+            return
+        text = format_welcome_message(template, user)
+        await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+    except Exception as e:
+        logger.warning(f"Send welcome message failed: {e}")
 
 async def handle_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.chat_member:
@@ -191,6 +210,8 @@ async def verification_callback(update: Update, context: ContextTypes.DEFAULT_TY
         
         await query.edit_message_text("✅ 验证通过！你现在可以在群里正常发言了。")
         await unrestrict_member(chat_id, user_id, context)
+        # 发送群内欢迎语
+        await send_welcome(chat_id, update.effective_user, context)
         VERIFYING_USERS.pop((chat_id, user_id), None)
     else:
         c.execute("UPDATE verification_sessions SET status = 'failed' WHERE id = ?", (session_id,))

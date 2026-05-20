@@ -3,7 +3,7 @@
 {% block content %}
 <h4 class="mb-4">⚙️ 系统设置</h4>
 
-<div class="card border-0 shadow-sm">
+<div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-white">
         <h6 class="mb-0"><i class="bi bi-gear me-2"></i>机器人配置</h6>
     </div>
@@ -40,6 +40,23 @@
                 <input type="password" name="admin_password" class="form-control" placeholder="留空则不变" autocomplete="new-password">
                 <div class="form-text">当前密码已隐藏，输入新密码可修改</div>
             </div>
+
+            <hr class="my-4">
+
+            <h6 class="mb-3"><i class="bi bi-chat-dots me-2"></i>入群欢迎语</h6>
+            <div class="mb-3">
+                <label class="form-label">欢迎语内容</label>
+                <textarea name="welcome_message" class="form-control" rows="5" placeholder="留空则不发送欢迎语">{{ welcome_message }}</textarea>
+                <div class="form-text">
+                    支持以下变量（验证通过后自动替换）：<br>
+                    <code>{mention}</code> — @用户名（可点击跳转）<br>
+                    <code>{name}</code> — 用户全名<br>
+                    <code>{first_name}</code> — 用户名字<br>
+                    <code>{username}</code> — @username（无用户名则显示全名）<br>
+                    <code>{user_id}</code> — 用户数字ID
+                </div>
+            </div>
+
             <button type="submit" class="btn btn-primary">
                 <i class="bi bi-save me-1"></i>保存配置
             </button>
@@ -47,8 +64,8 @@
     </div>
 </div>
 
-<div class="alert alert-info mt-4">
+<div class="alert alert-info">
     <i class="bi bi-info-circle me-2"></i>
-    <strong>提示：</strong>修改配置后需要重启容器才能生效。使用命令：<code>docker-compose restart</code>
+    <strong>提示：</strong>Bot Token 等配置修改后需要重启容器才能生效。欢迎语修改后即时生效，无需重启。
 </div>
 {% endblock %}
