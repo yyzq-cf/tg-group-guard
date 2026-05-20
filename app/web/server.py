@@ -241,8 +241,13 @@ def users():
 @app.route("/settings", methods=["GET", "POST"])
 @login_required
 def settings():
+    global ADMIN_PASSWORD_HASH
     if request.method == "POST":
         data = request.form
+        # 处理密码：留空则不修改
+        new_password = data.get("admin_password", "").strip()
+        if new_password:
+            ADMIN_PASSWORD_HASH = new_password
         # 保存 .env 配置
         config_file = "/app/.env"
         content = f"""BOT_TOKEN={data.get('bot_token', Config.BOT_TOKEN)}
@@ -251,7 +256,7 @@ VERIFY_TIMEOUT={data.get('verify_timeout', Config.VERIFY_TIMEOUT)}
 MAX_WARNINGS={data.get('max_warnings', Config.MAX_WARNINGS)}
 MUTE_DURATION={data.get('mute_duration', Config.MUTE_DURATION)}
 DB_PATH={Config.DB_PATH}
-ADMIN_PASSWORD={data.get('admin_password', ADMIN_PASSWORD_HASH)}
+ADMIN_PASSWORD={ADMIN_PASSWORD_HASH}
 """
         with open(config_file, "w") as f:
             f.write(content)
