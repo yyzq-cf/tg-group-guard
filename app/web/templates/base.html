@@ -28,6 +28,9 @@
                 <a class="nav-link {% if request.endpoint == 'violations' %}active{% endif %}" href="{{ url_for('violations') }}">
                     <i class="bi bi-shield-exclamation me-2"></i>违规记录
                 </a>
+                <a class="nav-link {% if request.endpoint == 'keywords' %}active{% endif %}" href="{{ url_for('keywords') }}">
+                    <i class="bi bi-slash-circle me-2"></i>违禁词管理
+                </a>
                 <a class="nav-link {% if request.endpoint == 'users' %}active{% endif %}" href="{{ url_for('users') }}">
                     <i class="bi bi-people me-2"></i>用户管理
                 </a>

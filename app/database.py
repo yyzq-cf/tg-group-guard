@@ -45,5 +45,28 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # 违禁词表
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS blocked_keywords (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            keyword TEXT NOT NULL UNIQUE,
+            enabled INTEGER DEFAULT 1,
+            hit_count INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    # 初始化默认违禁词（如果不存在）
+    _init_default_keywords(c)
     conn.commit()
     conn.close()
+
+def _init_default_keywords(c):
+    defaults = [
+        "博彩", "彩票", "投注", "兼职", "日赚", "月入", "刷单", "加微信", "加QQ", "qq号", "微信号",
+        "推广", "引流", "代理", "包赚", "稳赚", "暴利", "杀猪盘", "资金盘", "空投", "薅羊毛",
+        "casino", "bet", "gambling", "earn money", "make money fast", "investment opportunity",
+        "porn", "sex", "dating site", "sugar daddy"
+    ]
+    for kw in defaults:
+        c.execute("INSERT OR IGNORE INTO blocked_keywords (keyword) VALUES (?)", (kw,))

@@ -8,13 +8,6 @@ from app.config import Config
 
 logger = logging.getLogger(__name__)
 
-BLOCKED_KEYWORDS = [
-    "博彩", "彩票", "投注", "兼职", "日赚", "月入", "刷单", "加微信", "加QQ", "qq号", "微信号",
-    "推广", "引流", "代理", "包赚", "稳赚", "暴利", "杀猪盘", "资金盘", "空投", "薅羊毛",
-    "casino", "bet", "gambling", "earn money", "make money fast", "investment opportunity",
-    "porn", "sex", "dating site", "sugar daddy"
-]
-
 URL_PATTERN = re.compile(r'https?://\S+|www\.\S+', re.IGNORECASE)
 SHORT_URLS = ["bit.ly", "t.cn", "goo.gl", "tinyurl.com", "short.link", "dlvr.it", "t.me/+"]
 
@@ -22,13 +15,33 @@ WECHAT_PATTERN = re.compile(r'(微信|vx|wechat|薇信|威信)[:\s]*[a-zA-Z0-9_\
 PHONE_PATTERN = re.compile(r'[\+]?\d{11,}')
 QQ_PATTERN = re.compile(r'[Qq][Qq][:\s]*\d{5,}')
 
+def get_blocked_keywords():
+    """从数据库读取启用的违禁词"""
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT keyword FROM blocked_keywords WHERE enabled = 1")
+    keywords = [row["keyword"] for row in c.fetchall()]
+    conn.close()
+    return keywords
+
+def record_keyword_hit(keyword: str):
+    """记录关键词命中次数"""
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("UPDATE blocked_keywords SET hit_count = hit_count + 1 WHERE keyword = ?", (keyword,))
+    conn.commit()
+    conn.close()
+
 def is_spam(text: str) -> tuple[bool, str]:
     if not text:
         return False, ""
     lower = text.lower()
     
-    for kw in BLOCKED_KEYWORDS:
+    # 动态读取数据库中的违禁词
+    blocked_keywords = get_blocked_keywords()
+    for kw in blocked_keywords:
         if kw.lower() in lower:
+            record_keyword_hit(kw)
             return True, f"关键词拦截: {kw}"
     
     urls = URL_PATTERN.findall(text)
