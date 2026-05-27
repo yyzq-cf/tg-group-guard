@@ -2,7 +2,7 @@ import logging
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 from app.config import Config
-from app.database import get_conn
+from app.database import get_conn, is_chat_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +11,8 @@ def is_admin(user_id: int) -> bool:
 
 async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.effective_chat:
+        return
+    if not is_chat_allowed(update.effective_chat.id):
         return
     if not is_admin(update.effective_user.id):
         await update.message.reply_text("❌ 无权使用此命令。")
@@ -38,6 +40,8 @@ async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.effective_chat:
         return
+    if not is_chat_allowed(update.effective_chat.id):
+        return
     if not is_admin(update.effective_user.id):
         return
     if not context.args:
@@ -51,7 +55,9 @@ async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"操作失败: {e}")
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
+    if not update.message or not update.effective_chat:
+        return
+    if not is_chat_allowed(update.effective_chat.id):
         return
     if not is_admin(update.effective_user.id):
         await update.message.reply_text("❌ 无权使用此命令。")

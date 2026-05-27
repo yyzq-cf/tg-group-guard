@@ -11,3 +11,4 @@ class Config:
     MAX_WARNINGS = int(os.getenv("MAX_WARNINGS", "3"))
     MUTE_DURATION = int(os.getenv("MUTE_DURATION", "300"))
     DB_PATH = os.getenv("DB_PATH", "/data/bot.db")
+    ALLOWED_CHAT_IDS = os.getenv("ALLOWED_CHAT_IDS", "")

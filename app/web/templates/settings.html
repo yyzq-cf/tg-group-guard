@@ -40,6 +40,11 @@
                 <input type="password" name="admin_password" class="form-control" placeholder="留空则不变" autocomplete="new-password">
                 <div class="form-text">当前密码已隐藏，输入新密码可修改</div>
             </div>
+            <div class="mb-3">
+                <label class="form-label">白名单群 IDs</label>
+                <input type="text" name="allowed_chat_ids" class="form-control" value="{{ allowed_chat_ids }}" placeholder="如: -1001234567890,-1009876543210">
+                <div class="form-text">留空则不限制，多个群用英文逗号分隔。Bot 只会响应这些群的消息，被加入非白名单群会自动退出。</div>
+            </div>
 
             <hr class="my-4">
 

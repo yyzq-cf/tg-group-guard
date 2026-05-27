@@ -119,3 +119,24 @@ def set_setting(key: str, value: str):
               (key, value))
     conn.commit()
     conn.close()
+
+def is_chat_allowed(chat_id: int) -> bool:
+    """检查群是否在白名单中，未设置则不限制"""
+    allowed = get_setting("allowed_chat_ids", "")
+    if not allowed:
+        import os
+        allowed = os.getenv("ALLOWED_CHAT_IDS", "")
+    if not allowed:
+        return True
+    allowed_ids = [int(x.strip()) for x in allowed.split(",") if x.strip().lstrip("-").isdigit()]
+    return chat_id in allowed_ids
+
+def get_allowed_chats() -> list[int]:
+    """获取白名单群 ID 列表"""
+    allowed = get_setting("allowed_chat_ids", "")
+    if not allowed:
+        import os
+        allowed = os.getenv("ALLOWED_CHAT_IDS", "")
+    if not allowed:
+        return []
+    return [int(x.strip()) for x in allowed.split(",") if x.strip().lstrip("-").isdigit()]

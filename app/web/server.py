@@ -291,6 +291,10 @@ ADMIN_PASSWORD={ADMIN_PASSWORD_HASH}
             set_setting("antiflood_count", str(max(2, min(50, int(antiflood_count)))))
         set_setting("antiflood_action", data.get("antiflood_action", "mute"))
 
+        # 保存白名单群
+        allowed_chat_ids = data.get("allowed_chat_ids", "").strip()
+        set_setting("allowed_chat_ids", allowed_chat_ids)
+
         flash("配置已保存", "success")
         return redirect(url_for("settings"))
 
@@ -308,9 +312,11 @@ ADMIN_PASSWORD={ADMIN_PASSWORD_HASH}
         "count": get_setting("antiflood_count", "5"),
         "action": get_setting("antiflood_action", "mute"),
     }
+    allowed_chat_ids = get_setting("allowed_chat_ids", "")
     return render_template("settings.html", config=Config, admin_password=ADMIN_PASSWORD_HASH,
                            welcome_message=welcome_message, welcome_delete_delay=welcome_delete_delay,
-                           link_settings=link_settings, antiflood_settings=antiflood_settings)
+                           link_settings=link_settings, antiflood_settings=antiflood_settings,
+                           allowed_chat_ids=allowed_chat_ids)
 
 # ==================== 安全日志 ====================
 

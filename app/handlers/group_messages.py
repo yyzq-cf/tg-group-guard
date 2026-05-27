@@ -141,6 +141,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type not in ("group", "supergroup"):
         return
     
+    from app.database import is_chat_allowed
+    if not is_chat_allowed(update.effective_chat.id):
+        return
+    
     chat_id = update.effective_chat.id
     user = update.effective_user
     if not user:

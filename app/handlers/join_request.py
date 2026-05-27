@@ -108,6 +108,18 @@ async def handle_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
     old = update.chat_member.old_chat_member
     new = update.chat_member.new_chat_member
     
+    chat = update.chat_member.chat
+    from app.database import is_chat_allowed
+    if not is_chat_allowed(chat.id):
+        # 如果 Bot 自己被加入非白名单群，自动离开
+        if new.user.id == context.bot.id:
+            try:
+                await context.bot.leave_chat(chat.id)
+                logger.warning(f"Left unauthorized chat: {chat.id}")
+            except Exception as e:
+                logger.warning(f"Failed to leave chat {chat.id}: {e}")
+        return
+    
     # 只处理真正新加入的（从 left/kicked 变为 member）
     if new.status != "member" or old.status not in ("left", "kicked"):
         return
