@@ -157,6 +157,17 @@ Bot 的消息拦截逻辑每次都会**实时查询数据库**获取启用的违
 └── README.md
 ```
 
+## 🧰 技术栈与依赖
+
+本项目基于以下开源库构建：
+
+| 依赖 | 版本 | 说明 | 许可证 |
+|------|------|------|--------|
+| [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) | ≥20.0 | Telegram Bot API 的 Python 封装，处理消息、入群事件与群管操作 | BSD-3-Clause |
+| [Flask](https://github.com/pallets/flask) | ≥2.3.0 | Web 管理后台框架 | BSD-3-Clause |
+
+数据库使用内置的 **SQLite**，无需额外安装。
+
 ## ⚙️ 环境变量
 
 | 变量 | 默认值 | 说明 |
