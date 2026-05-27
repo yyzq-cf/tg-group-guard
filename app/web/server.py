@@ -12,7 +12,14 @@ from app.config import Config
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.getenv("WEB_SECRET", secrets.token_hex(32))
 
-ADMIN_PASSWORD_HASH=os.getenv("ADMIN_PASSWORD", "admin")
+def _load_admin_password():
+    """优先从数据库 settings 读取密码，没有再读环境变量"""
+    pwd = get_setting("admin_password", "")
+    if pwd:
+        return pwd
+    return os.getenv("ADMIN_PASSWORD", "admin")
+
+ADMIN_PASSWORD_HASH = _load_admin_password()
 
 # 防暴力破解配置
 MAX_LOGIN_ATTEMPTS = 5
@@ -248,6 +255,7 @@ def settings():
         new_password = data.get("admin_password", "").strip()
         if new_password:
             ADMIN_PASSWORD_HASH = new_password
+            set_setting("admin_password", new_password)  # ← 持久化到数据库
         # 保存 .env 配置
         config_file = "/app/.env"
         content = f"""BOT_TOKEN={data.get('bot_token', Config.BOT_TOKEN)}
