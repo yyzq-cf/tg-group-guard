@@ -89,6 +89,9 @@ def init_db():
     # 初始化默认欢迎语
     c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
               ("welcome_message", "🎉 欢迎 {mention} 加入群组！\n\n✅ 验证已通过，你现在可以正常发言了。\n\n请遵守群规，文明交流~"))
+    # 初始化 TOTP 配置
+    c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", ("totp_secret", ""))
+    c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", ("totp_enabled", "0"))
     conn.commit()
     conn.close()
 

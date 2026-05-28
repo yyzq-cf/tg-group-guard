@@ -8,7 +8,7 @@ from app.config import Config
 
 logger = logging.getLogger(__name__)
 
-URL_PATTERN = re.compile(r'https?://\S+|www\.\S+', re.IGNORECASE)
+URL_PATTERN = re.compile(r'https?://\S+|www\.\S+|t\.me/\S+|telegram\.me/\S+', re.IGNORECASE)
 TG_INVITE_PATTERN = re.compile(r't\.me/\+?[a-zA-Z0-9_]+|telegram\.me/\+?[a-zA-Z0-9_]+', re.IGNORECASE)
 SHORT_URLS = ["bit.ly", "t.cn", "goo.gl", "tinyurl.com", "short.link", "dlvr.it"]
 
