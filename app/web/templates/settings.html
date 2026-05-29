@@ -12,12 +12,22 @@
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Bot Token</label>
-                    <input type="text" name="bot_token" class="form-control" value="{{ config.BOT_TOKEN }}" placeholder="输入 Bot Token">
+                    <div class="input-group">
+                        <input type="password" name="bot_token" id="bot_token" class="form-control" value="{{ config.BOT_TOKEN }}" placeholder="输入 Bot Token">
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleVisible('bot_token', this)" title="显示/隐藏">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
                     <div class="form-text">从 @BotFather 获取</div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label">管理员 IDs</label>
-                    <input type="text" name="admin_ids" class="form-control" value="{{ config.ADMIN_IDS|join(',') }}" placeholder="如: 123456,789012">
+                    <div class="input-group">
+                        <input type="password" name="admin_ids" id="admin_ids" class="form-control" value="{{ config.ADMIN_IDS|join(',') }}" placeholder="如: 123456,789012">
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleVisible('admin_ids', this)" title="显示/隐藏">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
                     <div class="form-text">多个用英文逗号分隔</div>
                 </div>
             </div>
@@ -216,6 +226,19 @@
 
 {% block scripts %}
 <script>
+// ===== 敏感字段显示/隐藏 =====
+function toggleVisible(id, btn) {
+    const el = document.getElementById(id);
+    const icon = btn.querySelector('i');
+    if (el.type === 'password') {
+        el.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        el.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+}
+
 // ===== TOTP 二步验证 =====
 let totpSecret = null;
 
