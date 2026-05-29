@@ -6,6 +6,16 @@ from telegram.ext import ContextTypes, MessageHandler, filters
 from app.database import get_conn
 from app.config import Config
 
+def _get_max_warnings():
+    from app.database import get_setting
+    val = get_setting("max_warnings", "")
+    return int(val) if val and val.isdigit() else Config.MAX_WARNINGS
+
+def _get_mute_duration():
+    from app.database import get_setting
+    val = get_setting("mute_duration", "")
+    return int(val) if val and val.isdigit() else Config.MUTE_DURATION
+
 logger = logging.getLogger(__name__)
 
 URL_PATTERN = re.compile(r'https?://\S+|www\.\S+|t\.me/\S+|telegram\.me/\S+', re.IGNORECASE)
@@ -202,7 +212,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_admin:
         # 管理员/群主：只删消息+记录，不封禁不禁言
         logger.info(f"Admin spam deleted (no ban): user={user.id} reason={reason}")
-    elif warnings >= Config.MAX_WARNINGS:
+    elif warnings >= _get_max_warnings():
         try:
             await context.bot.ban_chat_member(chat_id, user.id)
             await context.bot.send_message(chat_id, f"🚫 用户 {mention} 因多次违规已被永久封禁。", parse_mode="HTML")
@@ -210,7 +220,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error(f"Ban failed: {e}")
     else:
         try:
-            until_date = datetime.now(timezone.utc) + timedelta(seconds=Config.MUTE_DURATION)
+            until_date = datetime.now(timezone.utc) + timedelta(seconds=_get_mute_duration())
             await context.bot.restrict_chat_member(
                 chat_id, user.id,
                 permissions=ChatPermissions(can_send_messages=False),
@@ -218,7 +228,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             await context.bot.send_message(
                 chat_id,
-                f"⚠️ {mention} 的违规消息已被删除。\n<b>原因:</b> {reason}\n<b>警告:</b> {warnings}/{Config.MAX_WARNINGS}\n再违规将被永久封禁。",
+                f"⚠️ {mention} 的违规消息已被删除。\n<b>原因:</b> {reason}\n<b>警告:</b> {warnings}/{_get_max_warnings()}\n再违规将被永久封禁。",
                 parse_mode="HTML"
             )
         except Exception as e:
@@ -248,7 +258,8 @@ async def handle_flood_violation(update: Update, context: ContextTypes.DEFAULT_T
             logger.error(f"Kick flood user failed: {e}")
     elif action == "mute":
         try:
-            until_date = datetime.now(timezone.utc) + timedelta(seconds=Config.MUTE_DURATION)
+            mute_sec = _get_mute_duration()
+            until_date = datetime.now(timezone.utc) + timedelta(seconds=mute_sec)
             await context.bot.restrict_chat_member(
                 chat_id, user.id,
                 permissions=ChatPermissions(can_send_messages=False),
@@ -256,7 +267,7 @@ async def handle_flood_violation(update: Update, context: ContextTypes.DEFAULT_T
             )
             await context.bot.send_message(
                 chat_id,
-                f"⚠️ {mention} 因刷屏消息已被删除并禁言 {Config.MUTE_DURATION // 60} 分钟。",
+                f"⚠️ {mention} 因刷屏消息已被删除并禁言 {mute_sec // 60} 分钟。",
                 parse_mode="HTML"
             )
         except Exception as e:

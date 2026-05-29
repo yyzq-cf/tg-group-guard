@@ -5,6 +5,10 @@ from telegram.ext import ContextTypes, ChatMemberHandler, CallbackQueryHandler
 from app.database import get_conn, get_setting
 from app.config import Config
 
+def _get_verify_timeout():
+    val = get_setting("verify_timeout", "")
+    return int(val) if val and val.isdigit() else Config.VERIFY_TIMEOUT
+
 logger = logging.getLogger(__name__)
 
 VERIFYING_USERS = {}
@@ -179,7 +183,7 @@ async def handle_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await context.bot.send_message(chat_id=user.id, text=text, reply_markup=markup)
         context.job_queue.run_once(
             auto_kick,
-            when=Config.VERIFY_TIMEOUT,
+            when=_get_verify_timeout(),
             data={"user_id": user.id, "chat_id": chat.id, "session_id": session_id},
             name=f"verify_{session_id}"
         )

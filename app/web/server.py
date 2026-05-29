@@ -295,16 +295,23 @@ def settings():
             set_setting("admin_password", new_password)  # ← 持久化到数据库
         # 保存 .env 配置
         config_file = "/app/.env"
+        verify_timeout = data.get('verify_timeout', str(Config.VERIFY_TIMEOUT)).strip()
+        max_warnings = data.get('max_warnings', str(Config.MAX_WARNINGS)).strip()
+        mute_duration = data.get('mute_duration', str(Config.MUTE_DURATION)).strip()
         content = f"""BOT_TOKEN={data.get('bot_token', Config.BOT_TOKEN)}
 ADMIN_IDS={data.get('admin_ids', ','.join(map(str, Config.ADMIN_IDS)))}
-VERIFY_TIMEOUT={data.get('verify_timeout', Config.VERIFY_TIMEOUT)}
-MAX_WARNINGS={data.get('max_warnings', Config.MAX_WARNINGS)}
-MUTE_DURATION={data.get('mute_duration', Config.MUTE_DURATION)}
+VERIFY_TIMEOUT={verify_timeout}
+MAX_WARNINGS={max_warnings}
+MUTE_DURATION={mute_duration}
 DB_PATH={Config.DB_PATH}
 ADMIN_PASSWORD={ADMIN_PASSWORD_HASH}
 """
         with open(config_file, "w") as f:
             f.write(content)
+        # 同时保存到数据库（即时生效，无需重启）
+        set_setting("verify_timeout", verify_timeout)
+        set_setting("max_warnings", max_warnings)
+        set_setting("mute_duration", mute_duration)
         # 保存欢迎语到数据库（即时生效）
         welcome_msg = data.get("welcome_message", "").strip()
         set_setting("welcome_message", welcome_msg)
@@ -355,6 +362,10 @@ ADMIN_PASSWORD={ADMIN_PASSWORD_HASH}
     }
     allowed_chat_ids = get_setting("allowed_chat_ids", "")
     bot_whitelist = get_setting("bot_whitelist", "")
+    # 从 DB 读取（即时生效），fallback 到 Config 默认值
+    db_verify_timeout = get_setting("verify_timeout", str(Config.VERIFY_TIMEOUT))
+    db_max_warnings = get_setting("max_warnings", str(Config.MAX_WARNINGS))
+    db_mute_duration = get_setting("mute_duration", str(Config.MUTE_DURATION))
     totp_secret = get_setting("totp_secret", "")
     totp_confirmed = get_setting("totp_confirmed", "0")
     totp_enabled = bool(totp_secret and totp_confirmed == "1")
@@ -374,6 +385,8 @@ ADMIN_PASSWORD={ADMIN_PASSWORD_HASH}
                            welcome_message=welcome_message, welcome_delete_delay=welcome_delete_delay,
                            link_settings=link_settings, antiflood_settings=antiflood_settings,
                            allowed_chat_ids=allowed_chat_ids, bot_whitelist=bot_whitelist,
+                           verify_timeout=db_verify_timeout, max_warnings=db_max_warnings,
+                           mute_duration=db_mute_duration,
                            totp_enabled=totp_enabled, totp_pending=totp_pending,
                            totp_qr=totp_qr, totp_secret_display=totp_secret_display)
 

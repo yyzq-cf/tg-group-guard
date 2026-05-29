@@ -34,15 +34,15 @@
             <div class="row">
                 <div class="col-md-4 mb-3">
                     <label class="form-label">验证超时 (秒)</label>
-                    <input type="number" name="verify_timeout" class="form-control" value="{{ config.VERIFY_TIMEOUT }}" min="10" max="600">
+                    <input type="number" name="verify_timeout" class="form-control" value="{{ verify_timeout }}" min="10" max="600">
                 </div>
                 <div class="col-md-4 mb-3">
                     <label class="form-label">最大警告次数</label>
-                    <input type="number" name="max_warnings" class="form-control" value="{{ config.MAX_WARNINGS }}" min="1" max="10">
+                    <input type="number" name="max_warnings" class="form-control" value="{{ max_warnings }}" min="1" max="10">
                 </div>
                 <div class="col-md-4 mb-3">
                     <label class="form-label">禁言时长 (秒)</label>
-                    <input type="number" name="mute_duration" class="form-control" value="{{ config.MUTE_DURATION }}" min="30" max="86400">
+                    <input type="number" name="mute_duration" class="form-control" value="{{ mute_duration }}" min="30" max="86400">
                 </div>
             </div>
             <div class="mb-3">
