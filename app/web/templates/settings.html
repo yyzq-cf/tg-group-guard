@@ -45,6 +45,11 @@
                 <input type="text" name="allowed_chat_ids" class="form-control" value="{{ allowed_chat_ids }}" placeholder="如: -1001234567890,-1009876543210">
                 <div class="form-text">留空则不限制，多个群用英文逗号分隔。Bot 只会响应这些群的消息，被加入非白名单群会自动退出。</div>
             </div>
+            <div class="mb-3">
+                <label class="form-label">🤖 机器人白名单 (Bot IDs)</label>
+                <input type="text" name="bot_whitelist" class="form-control" value="{{ bot_whitelist }}" placeholder="如: 123456789,987654321">
+                <div class="form-text">这些机器人加入群组时不会被自动踢出。多个用英文逗号分隔。群管机器人自身的 ID 无需填写。</div>
+            </div>
 
             <hr class="my-4">
 

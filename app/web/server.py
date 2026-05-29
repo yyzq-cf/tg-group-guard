@@ -3,11 +3,16 @@ import sqlite3
 import hashlib
 import secrets
 import logging
+import base64
+import io
 from functools import wraps
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from app.database import get_conn, get_setting, set_setting
 from app.config import Config
+
+import pyotp
+import qrcode
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.getenv("WEB_SECRET", secrets.token_hex(32))
@@ -295,6 +300,10 @@ ADMIN_PASSWORD={ADMIN_PASSWORD_HASH}
         allowed_chat_ids = data.get("allowed_chat_ids", "").strip()
         set_setting("allowed_chat_ids", allowed_chat_ids)
 
+        # 保存机器人白名单
+        bot_whitelist = data.get("bot_whitelist", "").strip()
+        set_setting("bot_whitelist", bot_whitelist)
+
         flash("配置已保存", "success")
         return redirect(url_for("settings"))
 
@@ -313,10 +322,11 @@ ADMIN_PASSWORD={ADMIN_PASSWORD_HASH}
         "action": get_setting("antiflood_action", "mute"),
     }
     allowed_chat_ids = get_setting("allowed_chat_ids", "")
+    bot_whitelist = get_setting("bot_whitelist", "")
     return render_template("settings.html", config=Config, admin_password=ADMIN_PASSWORD_HASH,
                            welcome_message=welcome_message, welcome_delete_delay=welcome_delete_delay,
                            link_settings=link_settings, antiflood_settings=antiflood_settings,
-                           allowed_chat_ids=allowed_chat_ids)
+                           allowed_chat_ids=allowed_chat_ids, bot_whitelist=bot_whitelist)
 
 # ==================== 安全日志 ====================
 

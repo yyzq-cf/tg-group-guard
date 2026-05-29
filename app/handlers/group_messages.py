@@ -150,10 +150,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user:
         return
     
+    # 检查管理员/群主身份（不豁免内容过滤，但不封禁/禁言）
+    is_admin = False
     try:
         member = await update.effective_chat.get_member(user.id)
         if member.status in ("administrator", "creator"):
-            return
+            is_admin = True
     except Exception:
         pass
     
@@ -162,7 +164,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 防刷屏检查
     flood_flag, flood_reason = check_antiflood(chat_id, user.id)
     if flood_flag:
-        await handle_flood_violation(update, context, chat_id, user, flood_reason)
+        await handle_flood_violation(update, context, chat_id, user, flood_reason, is_admin)
         return
     
     is_spam_flag, reason = is_spam(text)
@@ -197,7 +199,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     mention = user.mention_html()
     
-    if warnings >= Config.MAX_WARNINGS:
+    if is_admin:
+        # 管理员/群主：只删消息+记录，不封禁不禁言
+        logger.info(f"Admin spam deleted (no ban): user={user.id} reason={reason}")
+    elif warnings >= Config.MAX_WARNINGS:
         try:
             await context.bot.ban_chat_member(chat_id, user.id)
             await context.bot.send_message(chat_id, f"🚫 用户 {mention} 因多次违规已被永久封禁。", parse_mode="HTML")
@@ -219,13 +224,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.error(f"Restrict failed: {e}")
 
-async def handle_flood_violation(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int, user, reason: str):
+async def handle_flood_violation(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int, user, reason: str, is_admin: bool = False):
     """处理刷屏违规"""
     logger.info(f"Antiflood triggered by {user.id}: {reason}")
     try:
         await update.message.delete()
     except Exception as e:
         logger.error(f"Delete flood msg failed: {e}")
+    
+    if is_admin:
+        logger.info(f"Admin flood deleted (no action): user={user.id}")
+        return
+    
     mention = user.mention_html()
     settings = get_antiflood_settings()
     action = settings["action"]

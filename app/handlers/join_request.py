@@ -128,6 +128,26 @@ async def handle_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
     chat = update.chat_member.chat
     
     if user.is_bot:
+        # 保留群管机器人自身
+        if user.id == context.bot.id:
+            return
+        # 检查白名单
+        from app.database import get_setting
+        whitelist_str = get_setting("bot_whitelist", "")
+        whitelist_ids = {int(x.strip()) for x in whitelist_str.split(",") if x.strip().isdigit()}
+        if user.id in whitelist_ids:
+            logger.info(f"Whitelisted bot joined: {user.id} ({user.username})")
+            return
+        # 自动踢出其他机器人
+        try:
+            await kick_member(chat.id, user.id, context)
+            logger.info(f"Auto-kicked bot: {user.id} ({user.username}) from chat {chat.id}")
+            await context.bot.send_message(
+                chat_id=chat.id,
+                text=f"🚫 机器人 @{user.username} 已被自动移出群组。",
+            )
+        except Exception as e:
+            logger.warning(f"Failed to kick bot {user.id}: {e}")
         return
     
     try:
