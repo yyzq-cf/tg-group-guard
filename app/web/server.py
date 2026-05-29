@@ -122,6 +122,12 @@ def login():
     if request.method == "POST":
         pwd = request.form.get("password", "")
         if hash_pwd(pwd) == hash_pwd(ADMIN_PASSWORD_HASH):
+            # 检查是否启用 TOTP 二步验证
+            totp_secret = get_setting("totp_secret", "")
+            if totp_secret:
+                session["pending_2fa"] = True
+                return redirect(url_for("verify_2fa"))
+            # 未启用 TOTP，直接登录
             record_login_attempt(ip, success=True)
             session["logged_in"] = True
             return redirect(url_for("dashboard"))
@@ -141,6 +147,31 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+@app.route("/login/verify-2fa", methods=["GET", "POST"])
+def verify_2fa():
+    if not session.get("pending_2fa"):
+        return redirect(url_for("login"))
+    
+    ip = get_client_ip()
+    totp_secret = get_setting("totp_secret", "")
+    if not totp_secret:
+        session.clear()
+        return redirect(url_for("login"))
+    
+    totp = pyotp.TOTP(totp_secret)
+    
+    if request.method == "POST":
+        code = request.form.get("code", "").strip()
+        if totp.verify(code):
+            record_login_attempt(ip, success=True)
+            session.pop("pending_2fa", None)
+            session["logged_in"] = True
+            return redirect(url_for("dashboard"))
+        else:
+            flash("验证码错误，请重试", "danger")
+    
+    return render_template("verify_2fa.html")
 
 @app.route("/")
 @login_required
@@ -323,10 +354,59 @@ ADMIN_PASSWORD={ADMIN_PASSWORD_HASH}
     }
     allowed_chat_ids = get_setting("allowed_chat_ids", "")
     bot_whitelist = get_setting("bot_whitelist", "")
+    totp_secret = get_setting("totp_secret", "")
+    totp_enabled = bool(totp_secret)
     return render_template("settings.html", config=Config, admin_password=ADMIN_PASSWORD_HASH,
                            welcome_message=welcome_message, welcome_delete_delay=welcome_delete_delay,
                            link_settings=link_settings, antiflood_settings=antiflood_settings,
-                           allowed_chat_ids=allowed_chat_ids, bot_whitelist=bot_whitelist)
+                           allowed_chat_ids=allowed_chat_ids, bot_whitelist=bot_whitelist,
+                           totp_enabled=totp_enabled)
+
+# ==================== TOTP 二步验证 ====================
+
+@app.route("/settings/2fa/enable", methods=["POST"])
+@login_required
+def enable_2fa():
+    """启用 TOTP：生成密钥，返回 QR 码"""
+    secret = pyotp.random_base32()
+    set_setting("totp_secret", secret)
+    # 生成 provisioning URI
+    totp = pyotp.TOTP(secret)
+    uri = totp.provisioning_uri(name="admin", issuer_name="TG-Group-Guard")
+    # 生成 QR 码为 base64 data URL
+    img = qrcode.make(uri)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    qr_b64 = base64.b64encode(buf.getvalue()).decode()
+    return jsonify({"success": True, "secret": secret, "qr": f"data:image/png;base64,{qr_b64}"})
+
+@app.route("/settings/2fa/confirm", methods=["POST"])
+@login_required
+def confirm_2fa():
+    """确认 TOTP 设置：验证用户能用当前 secret 生成正确验证码"""
+    code = request.form.get("code", "").strip()
+    secret = get_setting("totp_secret", "")
+    if not secret:
+        return jsonify({"success": False, "error": "2FA 未启用，请先点击启用"}), 400
+    totp = pyotp.TOTP(secret)
+    if not totp.verify(code):
+        return jsonify({"success": False, "error": "验证码错误"}), 400
+    return jsonify({"success": True, "message": "验证码正确，2FA 已确认启用"})
+
+@app.route("/settings/2fa/disable", methods=["POST"])
+@login_required
+def disable_2fa():
+    """禁用 TOTP：需要输入当前验证码确认"""
+    code = request.form.get("code", "").strip()
+    secret = get_setting("totp_secret", "")
+    if not secret:
+        return jsonify({"success": False, "error": "2FA 未启用"}), 400
+    totp = pyotp.TOTP(secret)
+    if not totp.verify(code):
+        return jsonify({"success": False, "error": "验证码错误"}), 400
+    set_setting("totp_secret", "")
+    return jsonify({"success": True, "message": "2FA 已禁用"})
 
 # ==================== 安全日志 ====================
 

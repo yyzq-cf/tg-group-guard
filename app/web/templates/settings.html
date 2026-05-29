@@ -53,6 +53,53 @@
 
             <hr class="my-4">
 
+            <h6 class="mb-3"><i class="bi bi-shield-lock me-2"></i>二步验证 (2FA)</h6>
+            <div class="mb-3" id="totp-section">
+                {% if totp_enabled %}
+                <div class="alert alert-success d-flex align-items-center">
+                    <i class="bi bi-shield-check me-2"></i>
+                    <span>二步验证已启用 ✅</span>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">输入验证码以禁用</label>
+                    <div class="input-group">
+                        <input type="text" id="disable-code" class="form-control" placeholder="6位验证码" maxlength="6" inputmode="numeric" pattern="[0-9]{6}">
+                        <button class="btn btn-outline-danger" onclick="disable2FA()">禁用 2FA</button>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-warning d-flex align-items-center">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <span>二步验证未启用 ⚠️</span>
+                </div>
+                <button class="btn btn-success" onclick="enable2FA()">
+                    <i class="bi bi-shield-plus me-1"></i>启用二步验证
+                </button>
+                <div id="qr-area" class="mt-3 d-none">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h6>📱 扫描二维码</h6>
+                            <p class="text-muted small">使用 Google Authenticator 或任何 TOTP 应用扫描</p>
+                            <img id="qr-image" class="img-fluid mb-2" style="max-width: 200px;">
+                            <div class="mb-2">
+                                <small class="text-muted">或手动输入密钥：</small>
+                                <code id="secret-key" class="d-block mt-1"></code>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small">输入验证码确认启用</label>
+                                <div class="input-group">
+                                    <input type="text" id="enable-code" class="form-control" placeholder="6位验证码" maxlength="6" inputmode="numeric" pattern="[0-9]{6}">
+                                    <button class="btn btn-primary" onclick="confirmEnable2FA()">确认启用</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <hr class="my-4">
+
             <h6 class="mb-3"><i class="bi bi-chat-dots me-2"></i>入群欢迎语</h6>
             <div class="mb-3">
                 <label class="form-label">欢迎语内容</label>
@@ -138,4 +185,68 @@
     <i class="bi bi-info-circle me-2"></i>
     <strong>提示：</strong>Bot Token 等配置修改后需要重启容器才能生效。链接过滤、防刷屏、欢迎语修改后即时生效，无需重启。
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ===== TOTP 二步验证 =====
+let totpSecret = null;
+
+async function enable2FA() {
+    try {
+        const res = await fetch('/settings/2fa/enable', { method: 'POST' });
+        const data = await res.json();
+        if (!data.success) { alert(data.error); return; }
+        totpSecret = data.secret;
+        document.getElementById('qr-image').src = data.qr;
+        document.getElementById('secret-key').textContent = totpSecret;
+        document.getElementById('qr-area').classList.remove('d-none');
+    } catch (e) {
+        alert('请求失败: ' + e);
+    }
+}
+
+async function confirmEnable2FA() {
+    const code = document.getElementById('enable-code').value.trim();
+    if (!/^\d{6}$/.test(code)) { alert('请输入6位数字验证码'); return; }
+    try {
+        const res = await fetch('/settings/2fa/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'code=' + encodeURIComponent(code)
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert('✅ 二步验证已启用！请妥善保存密钥（仅显示一次）：\n\n' + totpSecret);
+            location.reload();
+        } else {
+            alert('❌ ' + (data.error || '验证失败'));
+        }
+    } catch (e) {
+        alert('请求失败: ' + e);
+    }
+}
+
+async function disable2FA() {
+    const code = document.getElementById('disable-code').value.trim();
+    if (!/^\d{6}$/.test(code)) { alert('请输入6位数字验证码'); return; }
+    if (!confirm('确认禁用二步验证？')) return;
+    try {
+        const res = await fetch('/settings/2fa/disable', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'code=' + encodeURIComponent(code)
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert('✅ 二步验证已禁用');
+            location.reload();
+        } else {
+            alert('❌ ' + (data.error || '禁用失败'));
+        }
+    } catch (e) {
+        alert('请求失败: ' + e);
+    }
+}
+</script>
 {% endblock %}
