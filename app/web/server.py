@@ -122,9 +122,10 @@ def login():
     if request.method == "POST":
         pwd = request.form.get("password", "")
         if hash_pwd(pwd) == hash_pwd(ADMIN_PASSWORD_HASH):
-            # 检查是否启用 TOTP 二步验证
+            # 检查是否启用 TOTP 二步验证（需已确认）
             totp_secret = get_setting("totp_secret", "")
-            if totp_secret:
+            totp_confirmed = get_setting("totp_confirmed", "0")
+            if totp_secret and totp_confirmed == "1":
                 session["pending_2fa"] = True
                 return redirect(url_for("verify_2fa"))
             # 未启用 TOTP，直接登录
@@ -355,12 +356,26 @@ ADMIN_PASSWORD={ADMIN_PASSWORD_HASH}
     allowed_chat_ids = get_setting("allowed_chat_ids", "")
     bot_whitelist = get_setting("bot_whitelist", "")
     totp_secret = get_setting("totp_secret", "")
-    totp_enabled = bool(totp_secret)
+    totp_confirmed = get_setting("totp_confirmed", "0")
+    totp_enabled = bool(totp_secret and totp_confirmed == "1")
+    totp_pending = bool(totp_secret and totp_confirmed != "1")
+    totp_qr = ""
+    totp_secret_display = ""
+    if totp_pending:
+        totp_obj = pyotp.TOTP(totp_secret)
+        uri = totp_obj.provisioning_uri(name="admin", issuer_name="TG-Group-Guard")
+        img = qrcode.make(uri)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        totp_qr = f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}"
+        totp_secret_display = totp_secret
     return render_template("settings.html", config=Config, admin_password=ADMIN_PASSWORD_HASH,
                            welcome_message=welcome_message, welcome_delete_delay=welcome_delete_delay,
                            link_settings=link_settings, antiflood_settings=antiflood_settings,
                            allowed_chat_ids=allowed_chat_ids, bot_whitelist=bot_whitelist,
-                           totp_enabled=totp_enabled)
+                           totp_enabled=totp_enabled, totp_pending=totp_pending,
+                           totp_qr=totp_qr, totp_secret_display=totp_secret_display)
 
 # ==================== TOTP 二步验证 ====================
 
@@ -370,6 +385,7 @@ def enable_2fa():
     """启用 TOTP：生成密钥，返回 QR 码"""
     secret = pyotp.random_base32()
     set_setting("totp_secret", secret)
+    set_setting("totp_confirmed", "0")  # 待确认
     # 生成 provisioning URI
     totp = pyotp.TOTP(secret)
     uri = totp.provisioning_uri(name="admin", issuer_name="TG-Group-Guard")
@@ -392,6 +408,7 @@ def confirm_2fa():
     totp = pyotp.TOTP(secret)
     if not totp.verify(code):
         return jsonify({"success": False, "error": "验证码错误"}), 400
+    set_setting("totp_confirmed", "1")
     return jsonify({"success": True, "message": "验证码正确，2FA 已确认启用"})
 
 @app.route("/settings/2fa/disable", methods=["POST"])
@@ -406,7 +423,16 @@ def disable_2fa():
     if not totp.verify(code):
         return jsonify({"success": False, "error": "验证码错误"}), 400
     set_setting("totp_secret", "")
+    set_setting("totp_confirmed", "")
     return jsonify({"success": True, "message": "2FA 已禁用"})
+
+@app.route("/settings/2fa/cancel", methods=["POST"])
+@login_required
+def cancel_2fa():
+    """取消待确认的 TOTP 设置"""
+    set_setting("totp_secret", "")
+    set_setting("totp_confirmed", "")
+    return jsonify({"success": True, "message": "2FA 设置已取消"})
 
 # ==================== 安全日志 ====================
 
