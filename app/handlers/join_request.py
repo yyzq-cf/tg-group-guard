@@ -13,7 +13,15 @@ logger = logging.getLogger(__name__)
 
 VERIFYING_USERS = {}
 
-def generate_question(session_id: int):
+def _cancel_del_job(context, session_id):
+    """取消验证消息的定时删除任务"""
+    try:
+        for job in context.job_queue.get_jobs_by_name(f"del_verify_{session_id}"):
+            job.schedule_removal()
+    except Exception:
+        pass
+
+def generate_question(session_id: int, user_mention: str = ""):
     a = random.randint(1, 10)
     b = random.randint(1, 10)
     answer = a + b
@@ -24,7 +32,8 @@ def generate_question(session_id: int):
     options = [(str(answer), str(answer)), (str(wrong1), str(wrong1)), (str(wrong2), str(wrong2))]
     random.shuffle(options)
     
-    text = f"🛡️ 入群验证\n\n为了确认你不是机器人，请回答：\n{a} + {b} = ?"
+    mention_line = f"{user_mention} " if user_mention else ""
+    text = f"🛡️ 入群验证\n\n{mention_line}为了确认你不是机器人，请在群内直接回答：\n{a} + {b} = ?"
     keyboard = [[InlineKeyboardButton(opt[0], callback_data=f"verify:{session_id}:{answer}:{opt[1]}")] for opt in options]
     return text, str(answer), keyboard
 
@@ -176,35 +185,27 @@ async def handle_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     VERIFYING_USERS[(chat.id, user.id)] = session_id
     
-    text, answer, keyboard = generate_question(session_id)
+    mention = user.mention_html()
+    text, answer, keyboard = generate_question(session_id, mention)
     markup = InlineKeyboardMarkup(keyboard)
     
     try:
-        await context.bot.send_message(chat_id=user.id, text=text, reply_markup=markup)
+        msg = await context.bot.send_message(chat_id=chat.id, text=text, reply_markup=markup, parse_mode="HTML")
         context.job_queue.run_once(
             auto_kick,
             when=_get_verify_timeout(),
-            data={"user_id": user.id, "chat_id": chat.id, "session_id": session_id},
+            data={"user_id": user.id, "chat_id": chat.id, "session_id": session_id, "message_id": msg.message_id},
             name=f"verify_{session_id}"
         )
+        # 60 秒后自动删除验证消息
+        context.job_queue.run_once(
+            auto_delete_welcome,
+            when=60,
+            data={"chat_id": chat.id, "message_id": msg.message_id},
+            name=f"del_verify_{session_id}"
+        )
     except Exception as e:
-        logger.error(f"Cannot send verification PM to {user.id}: {e}")
-        try:
-            msg = await context.bot.send_message(
-                chat_id=chat.id,
-                text=f"⚠️ {user.mention_html()} 请先私聊我完成验证，否则将被移出群组。",
-                parse_mode="HTML"
-            )
-            # 定时自动删除该提示消息
-            delete_delay = int(get_setting("pm_warning_delete_delay", "90"))
-            context.job_queue.run_once(
-                auto_delete_welcome,
-                when=delete_delay,
-                data={"chat_id": chat.id, "message_id": msg.message_id},
-                name=f"del_pm_warn_{msg.message_id}"
-            )
-        except Exception:
-            pass
+        logger.error(f"Cannot send verification to group {chat.id}: {e}")
 
 async def auto_kick(context: ContextTypes.DEFAULT_TYPE):
     job = context.job
@@ -224,12 +225,22 @@ async def auto_kick(context: ContextTypes.DEFAULT_TYPE):
         
         await kick_member(chat_id, user_id, context)
         
+        # 删除验证消息
+        message_id = data.get("message_id")
+        if message_id:
+            _cancel_del_job(context, session_id)
+            try:
+                await context.bot.delete_message(chat_id, message_id)
+            except Exception:
+                pass
+        
         try:
             await context.bot.send_message(user_id, "⏰ 验证超时，你已被移出群组。可以重新申请加入。")
         except Exception:
             pass
         try:
-            await context.bot.send_message(chat_id, f"⏰ 用户验证超时，已被移出群组。")
+            user_mention = f"<a href=\"tg://user?id={user_id}\">用户{user_id}</a>"
+            await context.bot.send_message(chat_id, f"⏰ {user_mention} 验证超时，已被移出群组。", parse_mode="HTML")
         except Exception:
             pass
         
@@ -263,6 +274,12 @@ async def verification_callback(update: Update, context: ContextTypes.DEFAULT_TY
         conn.close()
         return
     
+    # 只允许本人回答
+    if user_id != session["user_id"]:
+        await query.answer("这不是你的验证问题", show_alert=True)
+        conn.close()
+        return
+    
     chat_id = session["chat_id"]
     
     if selected == correct_answer:
@@ -277,6 +294,14 @@ async def verification_callback(update: Update, context: ContextTypes.DEFAULT_TY
         # 发送群内欢迎语
         await send_welcome(chat_id, update.effective_user, context)
         VERIFYING_USERS.pop((chat_id, user_id), None)
+        # 3 秒后删除验证消息
+        _cancel_del_job(context, session_id)
+        context.job_queue.run_once(
+            auto_delete_welcome,
+            when=3,
+            data={"chat_id": chat_id, "message_id": query.message.message_id},
+            name=f"del_verify_done_{session_id}"
+        )
     else:
         c.execute("UPDATE verification_sessions SET status = 'failed' WHERE id = ?", (session_id,))
         conn.commit()
@@ -285,6 +310,14 @@ async def verification_callback(update: Update, context: ContextTypes.DEFAULT_TY
         await query.edit_message_text("❌ 答案错误，验证失败。你已被移出群组，可以重新加入再试。")
         await kick_member(chat_id, user_id, context)
         VERIFYING_USERS.pop((chat_id, user_id), None)
+        # 3 秒后删除验证消息
+        _cancel_del_job(context, session_id)
+        context.job_queue.run_once(
+            auto_delete_welcome,
+            when=3,
+            data={"chat_id": chat_id, "message_id": query.message.message_id},
+            name=f"del_verify_done_{session_id}"
+        )
 
 chat_member_handler = ChatMemberHandler(handle_chat_member, ChatMemberHandler.CHAT_MEMBER)
 verification_callback_handler = CallbackQueryHandler(verification_callback, pattern=r"^verify:")
