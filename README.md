@@ -39,6 +39,35 @@ ADMIN_PASSWORD=你的管理密码
 > 获取你的 Telegram 数字 ID：[@userinfobot](https://t.me/userinfobot)
 
 ### 3. Docker 部署
+新建一个目录,进入此目录
+```bash
+mkdir tg-group-guard ; cd tg-group-guard
+```
+新建docker-compose.yml文件
+```
+vim docker-compose.yml
+```
+```bash
+services:  # 定义服务
+  bot:  # 服务名称为 bot
+    image: ywsj/tg-group-guard:latest  # 使用你上传到 Docker Hub 的镜像
+    container_name: tg-group-guard  # 容器名称
+    restart: always  # 容器重启策略，总是重启
+    ports:  # 映射端口
+      - "8080:8080"  # 将宿主机的 8080 端口映射到容器的 8080 端口
+    volumes:  # 挂载数据卷
+      - ./data:/data  # 将当前目录下的 data 文件夹挂载到容器的 /data
+    environment:  # 定义环境变量
+      BOT_TOKEN: "你的Bot Token"  # 机器人 Token,不填会报错
+      ADMIN_IDS: "你的电报数字ID"  # 管理员 Telegram ID，可以用逗号分隔多个，不填会报错
+      VERIFY_TIMEOUT: "60"  # 新成员验证超时时间，单位秒
+      MAX_WARNINGS: "3"  # 最大警告次数
+      MUTE_DURATION: "300"  # 警告后禁言时长，单位秒
+      DB_PATH: "/data/bot.db"  # 数据库存放路径
+      ADMIN_PASSWORD: "admin"  # 管理员密码
+```
+
+以上为使用我构建的镜像
 
 ```bash
 docker-compose up -d
