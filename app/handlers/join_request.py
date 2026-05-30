@@ -190,10 +190,18 @@ async def handle_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
     except Exception as e:
         logger.error(f"Cannot send verification PM to {user.id}: {e}")
         try:
-            await context.bot.send_message(
+            msg = await context.bot.send_message(
                 chat_id=chat.id,
                 text=f"⚠️ {user.mention_html()} 请先私聊我完成验证，否则将被移出群组。",
                 parse_mode="HTML"
+            )
+            # 定时自动删除该提示消息
+            delete_delay = int(get_setting("pm_warning_delete_delay", "90"))
+            context.job_queue.run_once(
+                auto_delete_welcome,
+                when=delete_delay,
+                data={"chat_id": chat.id, "message_id": msg.message_id},
+                name=f"del_pm_warn_{msg.message_id}"
             )
         except Exception:
             pass
