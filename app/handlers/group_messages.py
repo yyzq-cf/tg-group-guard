@@ -53,6 +53,17 @@ def record_keyword_hit(keyword: str):
     conn.commit()
     conn.close()
 
+def sanitize_reason(reason: str) -> str:
+    """脱敏违规原因中的链接，防止广告链接在通知中被完整展示或预览"""
+    def _mask_url(m):
+        url = m.group(0)
+        clean = re.sub(r'^https?://', '', url, flags=re.IGNORECASE)
+        clean = re.sub(r'^www\.', '', clean, flags=re.IGNORECASE)
+        if len(clean) > 20:
+            return clean[:17] + "..."
+        return clean
+    return URL_PATTERN.sub(_mask_url, reason)
+
 def is_spam(text: str) -> tuple[bool, str]:
     if not text:
         return False, ""
@@ -215,7 +226,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif warnings >= _get_max_warnings():
         try:
             await context.bot.ban_chat_member(chat_id, user.id)
-            await context.bot.send_message(chat_id, f"🚫 用户 {mention} 因多次违规已被永久封禁。", parse_mode="HTML")
+            await context.bot.send_message(chat_id,
+                f"🚫 用户 {mention} 因多次违规已被永久封禁。",
+                parse_mode="HTML", disable_web_page_preview=True)
         except Exception as e:
             logger.error(f"Ban failed: {e}")
     else:
@@ -228,8 +241,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             await context.bot.send_message(
                 chat_id,
-                f"⚠️ {mention} 的违规消息已被删除。\n<b>原因:</b> {reason}\n<b>警告:</b> {warnings}/{_get_max_warnings()}\n再违规将被永久封禁。",
-                parse_mode="HTML"
+                f"⚠️ {mention} 的违规消息已被删除。\n<b>原因:</b> {sanitize_reason(reason)}\n<b>警告:</b> {warnings}/{_get_max_warnings()}\n再违规将被永久封禁。",
+                parse_mode="HTML", disable_web_page_preview=True
             )
         except Exception as e:
             logger.error(f"Restrict failed: {e}")
@@ -253,7 +266,7 @@ async def handle_flood_violation(update: Update, context: ContextTypes.DEFAULT_T
         try:
             await context.bot.ban_chat_member(chat_id, user.id)
             await context.bot.unban_chat_member(chat_id, user.id)
-            await context.bot.send_message(chat_id, f"🚫 {mention} 因刷屏已被移出群组。", parse_mode="HTML")
+            await context.bot.send_message(chat_id, f"🚫 {mention} 因刷屏已被移出群组。", parse_mode="HTML", disable_web_page_preview=True)
         except Exception as e:
             logger.error(f"Kick flood user failed: {e}")
     elif action == "mute":
@@ -268,7 +281,7 @@ async def handle_flood_violation(update: Update, context: ContextTypes.DEFAULT_T
             await context.bot.send_message(
                 chat_id,
                 f"⚠️ {mention} 因刷屏消息已被删除并禁言 {mute_sec // 60} 分钟。",
-                parse_mode="HTML"
+                parse_mode="HTML", disable_web_page_preview=True
             )
         except Exception as e:
             logger.error(f"Mute flood user failed: {e}")
@@ -277,7 +290,7 @@ async def handle_flood_violation(update: Update, context: ContextTypes.DEFAULT_T
             await context.bot.send_message(
                 chat_id,
                 f"⚠️ {mention} 请注意，不要刷屏！",
-                parse_mode="HTML"
+                parse_mode="HTML", disable_web_page_preview=True
             )
         except Exception as e:
             logger.error(f"Warn flood user failed: {e}")

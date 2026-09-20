@@ -26,15 +26,28 @@ def generate_question(session_id: int, user_mention: str = ""):
     b = random.randint(1, 10)
     answer = a + b
     wrong1 = answer + random.randint(1, 5)
+    while wrong1 == answer:
+        wrong1 = answer + random.randint(1, 5)
     wrong2 = abs(answer - random.randint(1, 5))
     while wrong2 == answer:
         wrong2 = abs(answer - random.randint(1, 5))
-    options = [(str(answer), str(answer)), (str(wrong1), str(wrong1)), (str(wrong2), str(wrong2))]
+    # 三个选项：正确答案 + 两个错误答案
+    options = [str(answer), str(wrong1), str(wrong2)]
     random.shuffle(options)
+    
+    # 把正确答案存入数据库，callback_data 只传 session_id + 用户选的值
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("UPDATE verification_sessions SET question=?, answer=? WHERE id=?",
+              (f"{a}+{b}", str(answer), session_id))
+    conn.commit()
+    conn.close()
     
     mention_line = f"{user_mention} " if user_mention else ""
     text = f"🛡️ 入群验证\n\n{mention_line}为了确认你不是机器人，请在群内直接回答：\n{a} + {b} = ?"
-    keyboard = [[InlineKeyboardButton(opt[0], callback_data=f"verify:{session_id}:{answer}:{opt[1]}")] for opt in options]
+    # callback_data 格式: verify:{session_id}:{selected_value}  ← 不含正确答案
+    keyboard = [[InlineKeyboardButton(opt, callback_data=f"verify:{session_id}:{opt}")]
+                for opt in options]
     return text, str(answer), keyboard
 
 async def restrict_new_member(chat_id: int, user_id: int, context: ContextTypes.DEFAULT_TYPE):
@@ -253,15 +266,14 @@ async def verification_callback(update: Update, context: ContextTypes.DEFAULT_TY
     await query.answer()
     
     data = query.data.split(":")
-    if len(data) != 4 or data[0] != "verify":
+    if len(data) != 3 or data[0] != "verify":
         return
     
     try:
         session_id = int(data[1])
     except ValueError:
         return
-    correct_answer = data[2]
-    selected = data[3]
+    selected = data[2]  # 用户点击的选项文本，不含正确答案
     user_id = query.from_user.id
     
     conn = get_conn()
@@ -281,6 +293,7 @@ async def verification_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return
     
     chat_id = session["chat_id"]
+    correct_answer = str(session["answer"]) if session["answer"] else ""
     
     if selected == correct_answer:
         c.execute("UPDATE verification_sessions SET status = 'passed' WHERE id = ?", (session_id,))

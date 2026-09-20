@@ -1,7 +1,7 @@
 import os
 import sqlite3
-import hashlib
 import secrets
+from werkzeug.security import generate_password_hash, check_password_hash
 import logging
 import base64
 import io
@@ -17,14 +17,27 @@ import qrcode
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.getenv("WEB_SECRET", secrets.token_hex(32))
 
-def _load_admin_password():
-    """优先从数据库 settings 读取密码，没有再读环境变量"""
-    pwd = get_setting("admin_password", "")
-    if pwd:
-        return pwd
-    return os.getenv("ADMIN_PASSWORD", "admin")
+def _load_admin_password_hash():
+    """加载管理员密码哈希，自动从旧明文迁移"""
+    # 新格式：数据库里存的是 werkzeug hash
+    stored_hash = get_setting("admin_password_hash", "")
+    if stored_hash and stored_hash.startswith(("pbkdf2:", "scrypt:")):
+        return stored_hash
+    # 旧格式迁移：数据库里存的是明文密码
+    old_plain = get_setting("admin_password", "")
+    if old_plain:
+        h = generate_password_hash(old_plain)
+        set_setting("admin_password_hash", h)
+        set_setting("admin_password", "")  # 清除明文
+        logger.info("Migrated admin password from plaintext to werkzeug hash")
+        return h
+    # 最后 fallback 到环境变量（首次启动）
+    env_pwd = os.getenv("ADMIN_PASSWORD", "admin")
+    h = generate_password_hash(env_pwd)
+    set_setting("admin_password_hash", h)
+    return h
 
-ADMIN_PASSWORD_HASH = _load_admin_password()
+ADMIN_PASSWORD_HASH = _load_admin_password_hash()
 
 # 防暴力破解配置
 MAX_LOGIN_ATTEMPTS = 5
@@ -32,8 +45,14 @@ LOCKOUT_MINUTES = 15
 
 logger = logging.getLogger(__name__)
 
-def hash_pwd(pwd: str) -> str:
-    return hashlib.sha256(pwd.encode()).hexdigest()[:32]
+def verify_password(pwd: str) -> bool:
+    """验证密码，兼容 werkzeug hash 格式"""
+    global ADMIN_PASSWORD_HASH
+    # 如果内存中的 hash 过期了（被其他线程更新），重新加载
+    stored = get_setting("admin_password_hash", "")
+    if stored and stored.startswith(("pbkdf2:", "scrypt:")) and stored != ADMIN_PASSWORD_HASH:
+        ADMIN_PASSWORD_HASH = stored
+    return check_password_hash(ADMIN_PASSWORD_HASH, pwd)
 
 def get_client_ip():
     """获取真实客户端 IP（支持反向代理）"""
@@ -121,7 +140,7 @@ def login():
 
     if request.method == "POST":
         pwd = request.form.get("password", "")
-        if hash_pwd(pwd) == hash_pwd(ADMIN_PASSWORD_HASH):
+        if verify_password(pwd):
             # 检查是否启用 TOTP 二步验证（需已确认）
             totp_secret = get_setting("totp_secret", "")
             totp_confirmed = get_setting("totp_confirmed", "0")
@@ -291,24 +310,14 @@ def settings():
         # 处理密码：留空则不修改
         new_password = data.get("admin_password", "").strip()
         if new_password:
-            ADMIN_PASSWORD_HASH = new_password
-            set_setting("admin_password", new_password)  # ← 持久化到数据库
-        # 保存 .env 配置
-        config_file = "/app/.env"
+            ADMIN_PASSWORD_HASH = generate_password_hash(new_password)
+            set_setting("admin_password_hash", ADMIN_PASSWORD_HASH)
+            set_setting("admin_password", "")  # 清除旧明文
+        # 配置直接存数据库（即时生效，无需重启，不需要写 .env）
         verify_timeout = data.get('verify_timeout', str(Config.VERIFY_TIMEOUT)).strip()
         max_warnings = data.get('max_warnings', str(Config.MAX_WARNINGS)).strip()
         mute_duration = data.get('mute_duration', str(Config.MUTE_DURATION)).strip()
-        content = f"""BOT_TOKEN={data.get('bot_token', Config.BOT_TOKEN)}
-ADMIN_IDS={data.get('admin_ids', ','.join(map(str, Config.ADMIN_IDS)))}
-VERIFY_TIMEOUT={verify_timeout}
-MAX_WARNINGS={max_warnings}
-MUTE_DURATION={mute_duration}
-DB_PATH={Config.DB_PATH}
-ADMIN_PASSWORD={ADMIN_PASSWORD_HASH}
-"""
-        with open(config_file, "w") as f:
-            f.write(content)
-        # 同时保存到数据库（即时生效，无需重启）
+        # 保存到数据库（即时生效，无需重启）
         set_setting("verify_timeout", verify_timeout)
         set_setting("max_warnings", max_warnings)
         set_setting("mute_duration", mute_duration)
@@ -381,7 +390,7 @@ ADMIN_PASSWORD={ADMIN_PASSWORD_HASH}
         buf.seek(0)
         totp_qr = f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode()}"
         totp_secret_display = totp_secret
-    return render_template("settings.html", config=Config, admin_password=ADMIN_PASSWORD_HASH,
+    return render_template("settings.html", config=Config, admin_password="",
                            welcome_message=welcome_message, welcome_delete_delay=welcome_delete_delay,
                            link_settings=link_settings, antiflood_settings=antiflood_settings,
                            allowed_chat_ids=allowed_chat_ids, bot_whitelist=bot_whitelist,
