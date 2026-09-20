@@ -12,3 +12,5 @@ class Config:
     MUTE_DURATION = int(os.getenv("MUTE_DURATION", "300"))
     DB_PATH = os.getenv("DB_PATH", "/data/bot.db")
     ALLOWED_CHAT_IDS = os.getenv("ALLOWED_CHAT_IDS", "")
+
+APP_VERSION = os.getenv("APP_VERSION", "")

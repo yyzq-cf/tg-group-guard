@@ -40,6 +40,7 @@
         .card-header { background: var(--card-header-bg) !important; }
         .theme-toggle { cursor: pointer; font-size: 1.2rem; transition: transform 0.3s; }
         .theme-toggle:hover { transform: rotate(30deg); }
+        .sidebar-version { font-size: 0.72rem; color: var(--nav-color); opacity: 0.6; padding: 0.15rem 0.5rem; }
 
         /* 移动端顶部导航栏 */
         .mobile-navbar {
@@ -81,7 +82,7 @@
 
 <!-- 移动端顶部导航栏 -->
 <nav class="mobile-navbar d-md-none align-items-center justify-content-between">
-    <span class="navbar-brand">🛡️ 群管系统</span>
+    <span class="navbar-brand">🛡️ 群管系统 <span class="sidebar-version">{{ app_version }}</span></span>
     <div class="d-flex align-items-center">
         <span class="theme-toggle me-2" id="themeToggleMobile" onclick="toggleTheme()">🌙</span>
         <button class="btn btn-sm" type="button" onclick="toggleMobileMenu()" style="color: var(--nav-color);">
@@ -130,6 +131,7 @@
         <!-- 桌面端侧边栏 -->
         <div class="col-md-2 sidebar p-3 d-none d-md-block">
             <h5 class="mb-4 px-2">🛡️ 群管系统</h5>
+            <div class="px-2 mb-3"><span class="sidebar-version">{{ app_version }}</span></div>
             <nav class="nav flex-column">
                 <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
                     <i class="bi bi-speedometer2 me-2"></i>仪表盘

@@ -11,6 +11,18 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from app.database import get_conn, get_setting, set_setting
 from app.config import Config
 
+# 注入版本号到所有模板
+@app.context_processor
+def inject_version():
+    from app.config import APP_VERSION
+    if APP_VERSION:
+        version = APP_VERSION
+    else:
+        # 本地开发: 用日期版本
+        from datetime import datetime, timedelta
+        version = f'v{(datetime.utcnow() + timedelta(hours=8)).strftime("%Y%m%d")}-dev'
+    return dict(app_version=version)
+
 import pyotp
 import qrcode
 
