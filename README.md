@@ -210,6 +210,12 @@ Bot 的消息拦截逻辑每次都会**实时查询数据库**获取启用的违
 | `DB_PATH` | `/data/bot.db` | SQLite 数据库路径 |
 | `ADMIN_PASSWORD` | `admin` | Web 后台登录密码 |
 
+## ☕ 请作者喝杯咖啡
+
+如果这个项目对你有帮助，欢迎请作者喝杯咖啡 ☕️
+
+![打赏码](assets/donation.jpg)
+
 ## 📄 License
 
 MIT License
