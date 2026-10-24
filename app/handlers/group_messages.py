@@ -188,7 +188,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await handle_flood_violation(update, context, chat_id, user, flood_reason, is_admin)
         return
     
-    is_spam_flag, reason = is_spam(text)
+    # 管理员豁免内容过滤（消息不删、不记录违规）
+    if is_admin:
+        is_spam_flag, reason = False, ""
+    else:
+        is_spam_flag, reason = is_spam(text)
     if not is_spam_flag:
         # 检查自动回复
         reply = match_auto_reply(text)
