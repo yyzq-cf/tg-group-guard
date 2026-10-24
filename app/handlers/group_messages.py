@@ -183,6 +183,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 is_admin = True
         except Exception:
             pass
+
+    # 用户白名单：豁免违禁词、链接等内容过滤
+    from app.database import get_setting
+    user_whitelist_str = get_setting("user_whitelist", "")
+    if user_whitelist_str:
+        whitelist_ids = {int(x.strip()) for x in user_whitelist_str.split(",") if x.strip().lstrip("-").isdigit()}
+        if user.id in whitelist_ids:
+            is_admin = True
     
     text = update.message.text or update.message.caption or ""
     

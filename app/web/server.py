@@ -363,6 +363,10 @@ def settings():
         bot_whitelist = data.get("bot_whitelist", "").strip()
         set_setting("bot_whitelist", bot_whitelist)
 
+        # 保存用户白名单
+        user_whitelist = data.get("user_whitelist", "").strip()
+        set_setting("user_whitelist", user_whitelist)
+
         flash("配置已保存", "success")
         return redirect(url_for("settings"))
 
@@ -382,6 +386,7 @@ def settings():
     }
     allowed_chat_ids = get_setting("allowed_chat_ids", "")
     bot_whitelist = get_setting("bot_whitelist", "")
+    user_whitelist = get_setting("user_whitelist", "")
     # 从 DB 读取（即时生效），fallback 到 Config 默认值
     db_verify_timeout = get_setting("verify_timeout", str(Config.VERIFY_TIMEOUT))
     db_max_warnings = get_setting("max_warnings", str(Config.MAX_WARNINGS))
@@ -405,6 +410,7 @@ def settings():
                            welcome_message=welcome_message, welcome_delete_delay=welcome_delete_delay,
                            link_settings=link_settings, antiflood_settings=antiflood_settings,
                            allowed_chat_ids=allowed_chat_ids, bot_whitelist=bot_whitelist,
+                           user_whitelist=user_whitelist,
                            verify_timeout=db_verify_timeout, max_warnings=db_max_warnings,
                            mute_duration=db_mute_duration,
                            totp_enabled=totp_enabled, totp_pending=totp_pending,

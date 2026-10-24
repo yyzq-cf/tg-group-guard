@@ -60,6 +60,11 @@
                 <input type="text" name="bot_whitelist" class="form-control" value="{{ bot_whitelist }}" placeholder="如: 123456789,987654321">
                 <div class="form-text">这些机器人加入群组时不会被自动踢出。多个用英文逗号分隔。群管机器人自身的 ID 无需填写。</div>
             </div>
+            <div class="mb-3">
+                <label class="form-label">👤 用户白名单 (User IDs)</label>
+                <input type="text" name="user_whitelist" class="form-control" value="{{ user_whitelist }}" placeholder="如: 123456789,987654321">
+                <div class="form-text">白名单用户发送的消息豁免违禁词、链接等内容过滤（防刷屏仍生效，但不封禁）。多个用英文逗号分隔。</div>
+            </div>
 
             <hr class="my-4">
 
