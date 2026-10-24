@@ -170,15 +170,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if not user:
         return
-    
-    # 检查管理员/群主身份（不豁免内容过滤，但不封禁/禁言）
+
+    # 频道消息转发(777000=Channel_Bot)和管理员豁免内容过滤
     is_admin = False
-    try:
-        member = await update.effective_chat.get_member(user.id)
-        if member.status in ("administrator", "creator"):
-            is_admin = True
-    except Exception:
-        pass
+    # 777000 是 Telegram 频道转发消息的系统账号，视为管理员
+    if user.id == 777000:
+        is_admin = True
+    else:
+        try:
+            member = await update.effective_chat.get_member(user.id)
+            if member.status in ("administrator", "creator"):
+                is_admin = True
+        except Exception:
+            pass
     
     text = update.message.text or update.message.caption or ""
     
