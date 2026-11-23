@@ -226,6 +226,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     c = conn.cursor()
     c.execute("INSERT INTO violations (user_id, chat_id, message_text, reason) VALUES (?, ?, ?, ?)",
               (user.id, chat_id, text[:500], reason))
+    log_action("violation", user.id, user.username, chat_id, f"违规: {sanitize_reason(reason)}")
     c.execute("SELECT warning_count FROM users WHERE user_id = ?", (user.id,))
     row = c.fetchone()
     warnings = (row["warning_count"] if row else 0) + 1

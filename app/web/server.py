@@ -681,6 +681,7 @@ LOG_TYPE_ICONS = {
     "bot_kicked": "🤖",
     "admin_ban": "🛠️",
     "admin_unban": "🛠️",
+    "violation": "⚠️",
 }
 LOG_TYPE_LABELS = {
     "ban": "封禁",
@@ -699,6 +700,7 @@ LOG_TYPE_LABELS = {
     "bot_kicked": "机器人移出",
     "admin_ban": "管理员封禁",
     "admin_unban": "管理员解封",
+    "violation": "违规",
 }
 
 def log_type_badge(event_type: str):
