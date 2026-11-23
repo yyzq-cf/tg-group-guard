@@ -262,36 +262,48 @@ def violations():
     per_page = 20
     offset = (page - 1) * per_page
     search = request.args.get("search", "")
+    date_filter = request.args.get("date", "").strip()
 
     conn = get_conn()
     c = conn.cursor()
 
+    where = []
+    params = []
+    if date_filter:
+        where.append("date(v.created_at) = ?")
+        params.append(date_filter)
     if search:
-        c.execute("""
-            SELECT v.*, u.username FROM violations v
-            LEFT JOIN users u ON v.user_id = u.user_id
-            WHERE v.reason LIKE ? OR v.message_text LIKE ?
-            ORDER BY v.created_at DESC LIMIT ? OFFSET ?
-        """, (f"%{search}%", f"%{search}%", per_page, offset))
-        rows = c.fetchall()
-        c.execute("""
-            SELECT COUNT(*) FROM violations
-            WHERE reason LIKE ? OR message_text LIKE ?
-        """, (f"%{search}%", f"%{search}%"))
-        total = c.fetchone()[0]
-    else:
-        c.execute("""
-            SELECT v.*, u.username FROM violations v
-            LEFT JOIN users u ON v.user_id = u.user_id
-            ORDER BY v.created_at DESC LIMIT ? OFFSET ?
-        """, (per_page, offset))
-        rows = c.fetchall()
-        c.execute("SELECT COUNT(*) FROM violations")
-        total = c.fetchone()[0]
+        where.append("(v.reason LIKE ? OR v.message_text LIKE ?)")
+        params.extend([f"%{search}%", f"%{search}%"])
 
+    where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+
+    c.execute(f"""
+        SELECT v.*, u.username FROM violations v
+        LEFT JOIN users u ON v.user_id = u.user_id
+        {where_sql}
+        ORDER BY v.created_at DESC LIMIT ? OFFSET ?
+    """, params + [per_page, offset])
+    rows = c.fetchall()
+    c.execute(f"""
+        SELECT COUNT(*) FROM violations v
+        {where_sql}
+    """, params)
+    total = c.fetchone()[0]
+
+    # 按天聚合，用于日期快捷筛选
+    c.execute("""
+        SELECT date(created_at) as day, COUNT(*) as cnt
+        FROM violations GROUP BY day ORDER BY day DESC LIMIT 14
+    """)
+    day_counts = c.fetchall()
     conn.close()
+
     total_pages = (total + per_page - 1) // per_page
-    return render_template("violations.html", rows=rows, page=page, total_pages=total_pages, search=search, total=total)
+    today = datetime.now().strftime("%Y-%m-%d")
+    return render_template("violations.html", rows=rows, page=page, total_pages=total_pages,
+                           search=search, total=total, date_filter=date_filter, day_counts=day_counts,
+                           today=today)
 
 @app.route("/users")
 @login_required

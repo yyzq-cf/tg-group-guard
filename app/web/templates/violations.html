@@ -4,13 +4,32 @@
 <h4 class="mb-4">🚫 违规记录</h4>
 
 <div class="card border-0 shadow-sm">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <span>共 {{ total }} 条记录</span>
+    <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span>共 <strong>{{ total }}</strong> 条记录{% if date_filter %} · <span class="text-primary">{{ date_filter }}</span>{% endif %}</span>
         <form class="d-flex" method="GET" action="{{ url_for('violations') }}">
-            <input type="text" name="search" class="form-control form-control-sm me-2" placeholder="搜索原因或内容" value="{{ search }}" style="width: 240px;">
+            <input type="hidden" name="date" value="{{ date_filter }}">
+            <input type="text" name="search" class="form-control form-control-sm me-2" placeholder="搜索原因或内容" value="{{ search }}" style="width: 220px;">
             <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i></button>
         </form>
     </div>
+
+    <!-- 日期快捷筛选 -->
+    <div class="card-body border-bottom py-2">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="text-muted small me-1">📅 日期筛选:</span>
+            <a href="{{ url_for('violations', search=search) }}" class="btn btn-sm {% if not date_filter %}btn-primary{% else %}btn-outline-secondary{% endif %}">全部</a>
+            <a href="{{ url_for('violations', date=today, search=search) }}" class="btn btn-sm {% if date_filter == today %}btn-primary{% else %}btn-outline-secondary{% endif %}">📌 今天</a>
+            <input type="date" class="form-control form-control-sm" style="width: 150px;" value="{{ date_filter }}"
+                   onchange="if(this.value){location.href='{{ url_for('violations', search=search) }}&date='+this.value}">
+            {% if day_counts %}
+            <span class="text-muted small mx-2">|</span>
+            {% for d in day_counts %}
+                <a href="{{ url_for('violations', date=d.day, search=search) }}" class="btn btn-sm {% if date_filter == d.day %}btn-primary{% else %}btn-outline-secondary{% endif %}">{{ d.day }} <span class="badge bg-secondary">{{ d.cnt }}</span></a>
+            {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0">
@@ -49,11 +68,11 @@
         <nav>
             <ul class="pagination pagination-sm justify-content-center mb-0">
                 <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-                    <a class="page-link" href="{{ url_for('violations', page=page-1, search=search) }}">上一页</a>
+                    <a class="page-link" href="{{ url_for('violations', page=page-1, date=date_filter, search=search) }}">上一页</a>
                 </li>
                 <li class="page-item disabled"><span class="page-link">{{ page }} / {{ total_pages }}</span></li>
                 <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-                    <a class="page-link" href="{{ url_for('violations', page=page+1, search=search) }}">下一页</a>
+                    <a class="page-link" href="{{ url_for('violations', page=page+1, date=date_filter, search=search) }}">下一页</a>
                 </li>
             </ul>
         </nav>
