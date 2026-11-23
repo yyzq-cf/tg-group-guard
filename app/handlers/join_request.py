@@ -2,7 +2,7 @@ import random
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPermissions
 from telegram.ext import ContextTypes, ChatMemberHandler, CallbackQueryHandler
-from app.database import get_conn, get_setting
+from app.database import get_conn, get_setting, log_action
 from app.config import Config
 
 def _get_verify_timeout():
@@ -168,6 +168,7 @@ async def handle_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
         try:
             await kick_member(chat.id, user.id, context)
             logger.info(f"Auto-kicked bot: {user.id} ({user.username}) from chat {chat.id}")
+            log_action("bot_kicked", user.id, user.username, chat.id, "机器人入群被自动移出")
             await context.bot.send_message(
                 chat_id=chat.id,
                 text=f"🚫 机器人 @{user.username} 已被自动移出群组。",
@@ -237,6 +238,7 @@ async def auto_kick(context: ContextTypes.DEFAULT_TYPE):
         conn.commit()
         
         await kick_member(chat_id, user_id, context)
+        log_action("verify_timeout", user_id, None, chat_id, "入群验证超时被移出")
         
         # 删除验证消息
         message_id = data.get("message_id")
@@ -304,6 +306,8 @@ async def verification_callback(update: Update, context: ContextTypes.DEFAULT_TY
         
         await query.edit_message_text("✅ 验证通过！你现在可以在群里正常发言了。")
         await unrestrict_member(chat_id, user_id, context)
+        uname = update.effective_user.username if update.effective_user else None
+        log_action("verify_passed", user_id, uname, chat_id, "入群验证通过")
         # 发送群内欢迎语
         await send_welcome(chat_id, update.effective_user, context)
         VERIFYING_USERS.pop((chat_id, user_id), None)
@@ -322,6 +326,8 @@ async def verification_callback(update: Update, context: ContextTypes.DEFAULT_TY
         
         await query.edit_message_text("❌ 答案错误，验证失败。你已被移出群组，可以重新加入再试。")
         await kick_member(chat_id, user_id, context)
+        uname = update.effective_user.username if update.effective_user else None
+        log_action("verify_failed", user_id, uname, chat_id, "验证答案错误被移出")
         VERIFYING_USERS.pop((chat_id, user_id), None)
         # 3 秒后删除验证消息
         _cancel_del_job(context, session_id)

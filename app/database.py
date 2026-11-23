@@ -85,6 +85,19 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # 操作日志表 (Web 日志页)
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS action_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type TEXT NOT NULL,
+            user_id INTEGER,
+            username TEXT,
+            chat_id INTEGER,
+            detail TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_action_logs_created ON action_logs(created_at DESC)')
 
     # 初始化默认欢迎语
     c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
@@ -122,6 +135,20 @@ def set_setting(key: str, value: str):
               (key, value))
     conn.commit()
     conn.close()
+
+def log_action(event_type: str, user_id=None, username=None, chat_id=None, detail=""):
+    """记录操作日志（用于 Web 日志页）"""
+    try:
+        conn = get_conn()
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO action_logs (event_type, user_id, username, chat_id, detail) VALUES (?, ?, ?, ?, ?)",
+            (event_type, user_id, username, chat_id, detail[:1000])
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
 def is_chat_allowed(chat_id: int) -> bool:
     """检查群是否在白名单中，未设置则不限制"""

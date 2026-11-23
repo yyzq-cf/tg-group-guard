@@ -2,7 +2,7 @@ import logging
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 from app.config import Config
-from app.database import get_conn, is_chat_allowed
+from app.database import get_conn, is_chat_allowed, log_action
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,9 @@ async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await context.bot.ban_chat_member(update.effective_chat.id, target_id)
         await update.message.reply_text(f"✅ 已封禁用户 {target_id}")
+        admin = update.effective_user
+        if admin:
+            log_action("admin_ban", admin.id, admin.username, update.effective_chat.id, f"管理员封禁用户 {target_id}")
     except Exception as e:
         await update.message.reply_text(f"操作失败: {e}")
 
@@ -51,6 +54,9 @@ async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = int(context.args[0])
         await context.bot.unban_chat_member(update.effective_chat.id, user_id)
         await update.message.reply_text(f"✅ 已解封用户 {user_id}")
+        admin = update.effective_user
+        if admin:
+            log_action("admin_unban", admin.id, admin.username, update.effective_chat.id, f"管理员解封用户 {user_id}")
     except Exception as e:
         await update.message.reply_text(f"操作失败: {e}")
 

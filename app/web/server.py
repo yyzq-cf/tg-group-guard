@@ -650,5 +650,122 @@ def api_stats():
     conn.close()
     return {"verified": verified, "violations": violations, "pending_verify": pending}
 
+# ==================== 操作日志 ====================
+
+LOG_TYPE_ICONS = {
+    "ban": "🚫",
+    "ban_failed": "⚠️",
+    "mute": "🔇",
+    "mute_failed": "⚠️",
+    "flood_kick": "👢",
+    "flood_kick_failed": "⚠️",
+    "flood_mute": "🔇",
+    "flood_mute_failed": "⚠️",
+    "flood_warn": "📢",
+    "spam_admin": "🧹",
+    "verify_passed": "✅",
+    "verify_failed": "❌",
+    "verify_timeout": "⏰",
+    "bot_kicked": "🤖",
+    "admin_ban": "🛠️",
+    "admin_unban": "🛠️",
+}
+LOG_TYPE_LABELS = {
+    "ban": "封禁",
+    "ban_failed": "封禁失败",
+    "mute": "禁言",
+    "mute_failed": "禁言失败",
+    "flood_kick": "刷屏踢出",
+    "flood_kick_failed": "刷屏踢出失败",
+    "flood_mute": "刷屏禁言",
+    "flood_mute_failed": "刷屏禁言失败",
+    "flood_warn": "刷屏警告",
+    "spam_admin": "管理员消息删除",
+    "verify_passed": "验证通过",
+    "verify_failed": "验证失败",
+    "verify_timeout": "验证超时",
+    "bot_kicked": "机器人移出",
+    "admin_ban": "管理员封禁",
+    "admin_unban": "管理员解封",
+}
+
+def log_type_badge(event_type: str):
+    """返回日志类型徽章 HTML"""
+    icon = LOG_TYPE_ICONS.get(event_type, "📄")
+    label = LOG_TYPE_LABELS.get(event_type, event_type)
+    color_map = {
+        "ban": "danger", "ban_failed": "warning", "mute": "secondary",
+        "mute_failed": "warning", "flood_kick": "danger", "flood_kick_failed": "warning",
+        "flood_mute": "secondary", "flood_mute_failed": "warning", "flood_warn": "warning",
+        "spam_admin": "info", "verify_passed": "success", "verify_failed": "danger",
+        "verify_timeout": "warning", "bot_kicked": "dark", "admin_ban": "primary",
+        "admin_unban": "primary",
+    }
+    color = color_map.get(event_type, "secondary")
+    return f'<span class="badge bg-{color}">{icon} {label}</span>'
+
+# 注册日志类型徽章过滤器 (在 logs.html 中使用)
+app.add_template_filter(log_type_badge, "log_type_badge")
+
+@app.route("/logs")
+@login_required
+def logs():
+    page = request.args.get("page", 1, type=int)
+    per_page = 25
+    offset = (page - 1) * per_page
+    etype = request.args.get("type", "")
+    search = request.args.get("search", "").strip()
+
+    conn = get_conn()
+    c = conn.cursor()
+    where, params = [], []
+    if etype:
+        where.append("event_type = ?")
+        params.append(etype)
+    if search:
+        where.append("(username LIKE ? OR detail LIKE ? OR CAST(user_id AS TEXT) LIKE ?)")
+        params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
+    where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+
+    c.execute(f"SELECT COUNT(*) FROM action_logs{where_sql}", params)
+    total = c.fetchone()[0]
+    c.execute(f"""
+        SELECT * FROM action_logs{where_sql}
+        ORDER BY id DESC LIMIT ? OFFSET ?
+    """, params + [per_page, offset])
+    rows = c.fetchall()
+    conn.close()
+
+    total_pages = (total + per_page - 1) // per_page
+    return render_template("logs.html", rows=rows, page=page, total_pages=total_pages,
+                           total=total, etype=etype, search=search,
+                           type_labels=LOG_TYPE_LABELS, type_icons=LOG_TYPE_ICONS)
+
+@app.route("/logs/clear", methods=["POST"])
+@login_required
+def logs_clear():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("DELETE FROM action_logs")
+    conn.commit()
+    conn.close()
+    flash("日志已清空", "success")
+    return redirect(url_for("logs"))
+
+@app.route("/api/logs/stats")
+@login_required
+def api_logs_stats():
+    """返回最近24小时各类型事件统计"""
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("""
+        SELECT event_type, COUNT(*) as cnt FROM action_logs
+        WHERE created_at >= datetime('now', '-1 day')
+        GROUP BY event_type ORDER BY cnt DESC
+    """)
+    rows = c.fetchall()
+    conn.close()
+    return jsonify({row["event_type"]: row["cnt"] for row in rows})
+
 def run_web(host="0.0.0.0", port=8080):
     app.run(host=host, port=port, debug=False, use_reloader=False)

@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from telegram import Update, ChatPermissions
 from telegram.ext import ContextTypes, MessageHandler, filters
-from app.database import get_conn
+from app.database import get_conn, log_action
 from app.config import Config
 
 def _get_max_warnings():
@@ -239,14 +239,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_admin:
         # 管理员/群主：只删消息+记录，不封禁不禁言
         logger.info(f"Admin spam deleted (no ban): user={user.id} reason={reason}")
+        log_action("spam_admin", user.id, user.username, chat_id, f"管理员消息违规被删: {sanitize_reason(reason)}")
     elif warnings >= _get_max_warnings():
         try:
             await context.bot.ban_chat_member(chat_id, user.id)
             await context.bot.send_message(chat_id,
                 f"🚫 用户 {mention} 因多次违规已被永久封禁。",
                 parse_mode="HTML", disable_web_page_preview=True)
+            log_action("ban", user.id, user.username, chat_id, f"违规达上限({warnings}/{_get_max_warnings()})被永久封禁: {sanitize_reason(reason)}")
         except Exception as e:
             logger.error(f"Ban failed: {e}")
+            log_action("ban_failed", user.id, user.username, chat_id, f"封禁失败: {e}")
     else:
         try:
             until_date = datetime.now(timezone.utc) + timedelta(seconds=_get_mute_duration())
@@ -260,8 +263,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"⚠️ {mention} 的违规消息已被删除。\n<b>原因:</b> {sanitize_reason(reason)}\n<b>警告:</b> {warnings}/{_get_max_warnings()}\n再违规将被永久封禁。",
                 parse_mode="HTML", disable_web_page_preview=True
             )
+            log_action("mute", user.id, user.username, chat_id, f"违规警告({warnings}/{_get_max_warnings()})禁言: {sanitize_reason(reason)}")
         except Exception as e:
             logger.error(f"Restrict failed: {e}")
+            log_action("mute_failed", user.id, user.username, chat_id, f"禁言失败: {e}")
 
 async def handle_flood_violation(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int, user, reason: str, is_admin: bool = False):
     """处理刷屏违规"""
@@ -283,8 +288,10 @@ async def handle_flood_violation(update: Update, context: ContextTypes.DEFAULT_T
             await context.bot.ban_chat_member(chat_id, user.id)
             await context.bot.unban_chat_member(chat_id, user.id)
             await context.bot.send_message(chat_id, f"🚫 {mention} 因刷屏已被移出群组。", parse_mode="HTML", disable_web_page_preview=True)
+            log_action("flood_kick", user.id, user.username, chat_id, f"刷屏被移出群: {reason}")
         except Exception as e:
             logger.error(f"Kick flood user failed: {e}")
+            log_action("flood_kick_failed", user.id, user.username, chat_id, f"刷屏踢出失败: {e}")
     elif action == "mute":
         try:
             mute_sec = _get_mute_duration()
@@ -299,8 +306,10 @@ async def handle_flood_violation(update: Update, context: ContextTypes.DEFAULT_T
                 f"⚠️ {mention} 因刷屏消息已被删除并禁言 {mute_sec // 60} 分钟。",
                 parse_mode="HTML", disable_web_page_preview=True
             )
+            log_action("flood_mute", user.id, user.username, chat_id, f"刷屏被禁言 {mute_sec // 60} 分钟: {reason}")
         except Exception as e:
             logger.error(f"Mute flood user failed: {e}")
+            log_action("flood_mute_failed", user.id, user.username, chat_id, f"刷屏禁言失败: {e}")
     else:
         try:
             await context.bot.send_message(
@@ -308,6 +317,7 @@ async def handle_flood_violation(update: Update, context: ContextTypes.DEFAULT_T
                 f"⚠️ {mention} 请注意，不要刷屏！",
                 parse_mode="HTML", disable_web_page_preview=True
             )
+            log_action("flood_warn", user.id, user.username, chat_id, f"刷屏警告: {reason}")
         except Exception as e:
             logger.error(f"Warn flood user failed: {e}")
 
